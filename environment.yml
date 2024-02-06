@@ -1,0 +1,19 @@
+name: chemvae
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - ipykernel=6.29.1
+  - matplotlib=3.8.0
+  - pandas=2.1.4
+  - python=3.11.7
+  - pip:
+      - h5py==3.10.0
+      - keras==2.15.0
+      - numpy==1.26.4
+      - pyyaml==6.0.1
+      - rdkit==2023.9.4
+      - rdkit-pypi==2022.9.5
+      - tensorflow==2.15.0
+      - torch==2.2.0
+      - torchsummary==1.5.1
