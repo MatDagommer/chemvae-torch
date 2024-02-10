@@ -158,7 +158,7 @@ class EncoderModel(nn.Module):
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         z_mean = self.z_mean(x)
 
-        # return both mean and last encoding layer for std dev sampling
+        # return both mean and encoder output
         return z_mean, x
 
 
@@ -366,17 +366,24 @@ class CustomGRUCell(GRUCell):
         if hx is None:
             hx = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        x_gates = F.linear(input, self.weight_ih, self.bias_ih)
-        h_gates = F.linear(hx, self.weight_hh, self.bias_hh)
+        x_gates = F.linear(input, self.weight_ih) # self.weight_ih = concat(W_r, W_z, W_h)
+        h_gates = F.linear(hx, self.weight_hh) # self.weight_ih = concat(U_r, U_z, U_h)
 
-        x_r, x_z, x_n = x_gates.chunk(3, 1)
-        h_r, h_z, h_n = h_gates.chunk(3, 1)
+        x_r, x_z, x_h = x_gates.chunk(3, 1) # returns W_r @ x_t, W_z @ x_t, W_h @ x_t 
+        h_r, h_z, h_h = h_gates.chunk(3, 1) # returns U_r @ h_tm1, U_z @ h_tm1, U_h @ h_tm1 
 
-        resetgate = torch.sigmoid(x_r + h_r)
-        inputgate = torch.sigmoid(x_z + h_z)
-        newgate = F.softmax(x_n + resetgate * h_n, dim=1)
+        reset_gate = torch.sigmoid(x_r + h_r + self.bias_ih[:self.hidden_size])
+        update_gate = torch.sigmoid(x_z + h_z + self.bias_ih[self.hidden_size:2*self.hidden_size])
 
-        hy = newgate + inputgate * (hx - newgate)
+        new_gate = F.softmax(
+            x_h
+            + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
+            # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
+            + self.bias_ih[2*self.hidden_size:],
+            dim=1
+        )
+
+        hy = (1. - update_gate) * new_gate + update_gate * hx
 
         return hy
 
@@ -422,3 +429,64 @@ class CustomGRU(torch.nn.Module):
             outputs.append(hx[:, i + 1])
 
         return torch.stack(outputs, dim=1), hx
+
+
+
+class AE_PP_Model(nn.Module):
+    """
+    Variational Autoencoder with property prediction (QED, SAS, logP).
+    """
+    def __init__(self, encoder, decoder, property_predictor, model_loss_weights, latent_dim):
+        super(VAE, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.property_predictor = property_predictor
+        self.model_loss_weights = model_loss_weights
+        self.latent_dim = latent_dim
+
+        # similar to the layer found in models.variational_layers (original code)
+        self.logvar_layer = nn.Linear(encoder.output_dim, latent_dim)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def forward(self, x):
+        # Encode input - returns mean and encoder output
+        mu, encoder_output = self.encoder(x)
+        
+        # Compute log variance from the encoder's output
+        logvar = self.logvar_layer(encoder_output)
+        
+        # Reparameterization trick to sample from the latent space
+        z = self.reparameterize(mu, logvar)
+        
+        # Decode the latent variable
+        reconstruction = self.decoder(z)
+        
+        return reconstruction, mu, logvar
+
+    def loss_function(self, reconstruction, x, mu, logvar):
+        # Compute reconstruction loss
+        criterion = nn.CrossEntropyLoss()
+        reconstruction_loss = criterion(reconstruction, x)
+
+        # Compute KL divergence
+        kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())\
+
+        # Compute prediction loss
+
+        # Total loss
+        total_loss = reconstruction_loss * model_loss_weights["reconstruction_loss"]
+                    + kl_loss * model_loss_weights["kl_loss"]
+                    + prediction_loss * model_loss_weights["prediction_loss"]
+
+        return total_loss
+
+# Example usage:
+# Assuming you have encoder and decoder defined elsewhere
+# encoder = ...
+# decoder = ...
+# latent_dim = ...
+# vae = VAE(encoder, decoder, latent_dim)
