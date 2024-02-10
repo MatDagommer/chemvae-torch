@@ -436,16 +436,18 @@ class AE_PP_Model(nn.Module):
     """
     Variational Autoencoder with property prediction (QED, SAS, logP).
     """
-    def __init__(self, encoder, decoder, property_predictor, model_loss_weights, latent_dim):
-        super(VAE, self).__init__()
+    def __init__(self, encoder, decoder, property_predictor, params):
+        
+        super(AE_PP_Model, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.property_predictor = property_predictor
-        self.model_loss_weights = model_loss_weights
-        self.latent_dim = latent_dim
+
+        self.model_loss_weights = params["model_loss_weights"]
+        self.hidden_dim = params["hidden_dim"]
 
         # similar to the layer found in models.variational_layers (original code)
-        self.logvar_layer = nn.Linear(encoder.output_dim, latent_dim)
+        self.logvar_layer = nn.Linear(encoder.output_dim, hidden_dim)
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -456,6 +458,9 @@ class AE_PP_Model(nn.Module):
         # Encode input - returns mean and encoder output
         mu, encoder_output = self.encoder(x)
         
+        # Retrieving property prediction
+        prediction = self.property_predictor(mu)
+
         # Compute log variance from the encoder's output
         logvar = self.logvar_layer(encoder_output)
         
@@ -465,28 +470,23 @@ class AE_PP_Model(nn.Module):
         # Decode the latent variable
         reconstruction = self.decoder(z)
         
-        return reconstruction, mu, logvar
+        return reconstruction, prediction, mu, logvar
 
-    def loss_function(self, reconstruction, x, mu, logvar):
+    def loss_function(self, reconstruction, prediction, mu, logvar, x, y):
         # Compute reconstruction loss
-        criterion = nn.CrossEntropyLoss()
-        reconstruction_loss = criterion(reconstruction, x)
+        reconstruction_criterion = nn.CrossEntropyLoss()
+        reconstruction_loss = reconstruction_criterion(reconstruction, x)
 
         # Compute KL divergence
         kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())\
 
         # Compute prediction loss
+        prediction_criterion = nn.MSELoss()
+        prediction_loss = prediction_criterion(prediction, y)
 
         # Total loss
-        total_loss = reconstruction_loss * model_loss_weights["reconstruction_loss"]
-                    + kl_loss * model_loss_weights["kl_loss"]
+        total_loss = reconstruction_loss * model_loss_weights["reconstruction_loss"] \
+                    + kl_loss * model_loss_weights["kl_loss"] \
                     + prediction_loss * model_loss_weights["prediction_loss"]
 
         return total_loss
-
-# Example usage:
-# Assuming you have encoder and decoder defined elsewhere
-# encoder = ...
-# decoder = ...
-# latent_dim = ...
-# vae = VAE(encoder, decoder, latent_dim)
