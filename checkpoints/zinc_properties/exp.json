@@ -5,6 +5,7 @@
   "char_file": "zinc.json",
   "encoder_weights_file": "zinc_encoder.h5",
   "decoder_weights_file": "zinc_decoder.h5",
+  "decoder_torch_weights_file": "zinc_decoder_torch.h5",
   "prop_pred_weights_file": "zinc_prop_pred.h5",
   "reg_prop_tasks": [
     "qed",
