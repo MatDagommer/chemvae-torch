@@ -1,3 +1,4 @@
+import sys; sys.path.append('../')
 import time
 import torch
 import torch.nn as nn
@@ -6,13 +7,13 @@ from torch.utils.data import DataLoader
 import numpy as np
 from sklearn.metrics import accuracy_score
 from functools import partial
-from models_torch import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
-import hyperparameters
+from chemvae_torch.models_torch import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
+from chemvae_torch import hyperparameters
 import argparse
 from pathlib import Path
 import os
 import yaml
-import mol_utils as mu
+import chemvae_torch.mol_utils as mu
 
 # Define the models, loss functions, etc.
 # You need to define your PyTorch models and other necessary components here.
@@ -24,6 +25,38 @@ import mol_utils as mu
 # encoder = YourEncoderModel()
 # decoder = YourDecoderModel()
 # property_predictor = YourPropertyPredictorModel()
+
+def hot_to_smiles(hot_x, indices_chars):
+    
+    assert type(hot_x) == np.ndarray
+    assert len(hot_x.shape) == 3
+    
+    smiles = []
+    for i in range(hot_x.shape[0]):  # number of samples
+        temp_str = ""
+        for j in range(hot_x.shape[1]):  # length of smiles
+            index = np.argmax(hot_x[i, j, :])
+            temp_str += indices_chars[index]
+        smiles.append(temp_str)
+    return smiles
+
+def smiles_to_hot(smiles, params, canonize_smiles=True, check_smiles=False):
+
+    chars = yaml.safe_load(open(params["char_file"]))
+    char_indices = dict((c, i) for i, c in enumerate(chars))
+    indices_char = dict((i, c) for i, c in enumerate(chars))
+
+    if isinstance(smiles, str):
+        smiles = [smiles]
+
+    if canonize_smiles:
+        smiles = [mu.canon_smiles(s) for s in smiles]
+
+    if check_smiles:
+        smiles = mu.smiles_to_hot_filter(smiles, char_indices)
+
+    z = mu.smiles_to_hot(smiles, params["MAX_LEN"], params["PADDING"], char_indices, params["NCHARS"])
+    return z
 
 def vectorize_data(params):
     # @out : Y_train /Y_test : each is list of datasets.
@@ -140,9 +173,24 @@ def train_decoder(params):
     # Load data
     X_train, X_test, Y_train, Y_test = vectorize_data(params)
 
+    # Keeping only regression property prediction targets
+    Y_train = Y_train[0]
+    Y_test = Y_test[0]
+
+    # Convert data to torch tensors
+    X_train = torch.from_numpy(X_train).float()
+    X_test = torch.from_numpy(X_test).float()
+    Y_train = torch.from_numpy(Y_train).float()
+    Y_test = torch.from_numpy(Y_test).float()
+
     encoder = EncoderModel(params)
     decoder = DecoderModel(params)
     property_predictor = PropertyPredictorModel(params)
+
+    # Load pretrained parameters
+    encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
+    decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
+    property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
 
     # loss weights
     #NOTE: In original implementation, xent_loss_weight and kl_loss_var are trainable
@@ -158,26 +206,40 @@ def train_decoder(params):
                     }
     
     params["model_loss_weights"] = model_loss_weights
+    params['lr']
     
     vae = AE_PP_Model(encoder, decoder, property_predictor, params)
-
-    # Load pretrained parameters
-    # TODO: Write this part
 
     # Freeze encoder
     for param in vae.encoder.parameters():
         param.requires_grad = False
+    
+    # Freeze all decoder layers except terminal GRU
+    layers_to_train = [
+        "x_out.cell.weight_ih",
+        "x_out.cell.weight_hh",
+        "x_out.cell.bias_ih",
+        "x_out.cell.bias_hh"
+    ]
+
+    for name, param in vae.decoder.named_parameters():
+        print(name)
+        if name in layers_to_train:
+            param.requires_grad = True
+        else:
+            param.requires_grad = False
+    
     # Freeze property predictor
     for param in vae.property_predictor.parameters():
         param.requires_grad = False
 
     # Define optimizer
     if params['optim'] == 'adam':
-        optimizer = optim.Adam(encoder.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
+        optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
     elif params['optim'] == 'rmsprop':
-        optimizer = optim.RMSprop(encoder.parameters(), lr=params['lr'], momentum=params['momentum'])
+        optimizer = optim.RMSprop(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
     elif params['optim'] == 'sgd':
-        optimizer = optim.SGD(encoder.parameters(), lr=params['lr'], momentum=params['momentum'])
+        optimizer = optim.SGD(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
     else:
         raise NotImplementedError("Please define valid optimizer")
 
@@ -187,24 +249,42 @@ def train_decoder(params):
     test_dataset = torch.utils.data.TensorDataset(X_test, Y_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=params['batch_size'], shuffle=False)
 
+    test_batch, _ = next(iter(test_loader))
+    test_sample = test_batch[0:1]
+
+    # retrieving character encoding
+    chars = yaml.safe_load(open(params["char_file"]))
+    indices_char = dict((i, c) for i, c in enumerate(chars))
+
     # Train the model
     for epoch in range(params['prev_epochs'], params['epochs']):
         
-        property_predictor.train()
         for batch_idx, (x, y) in enumerate(train_loader):
+
+            vae.train()
             optimizer.zero_grad()
 
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x)
-            loss = vae.loss_function(reconstruction, prediction, mu, logvar, x, y)
+            loss, recon_loss, _, _ = vae.loss_function(reconstruction, prediction, mu, logvar, x, y)
 
             # Backward pass and optimize
             loss.backward()
             optimizer.step()
+            
+            # eval
+            vae.eval()
+            recon_test, _, _, _ = vae.forward(test_sample)
+
+            expected = hot_to_smiles(test_sample.detach().numpy(), indices_char)[0]
+            computed = hot_to_smiles(recon_test.detach().numpy(), indices_char)[0]
+
+            print("Epoch {} Batch {}. Expected: {}. Computed: {}".format(epoch, batch_idx, expected, computed))
+
 
         # Print some metrics or do logging
         if epoch % params['log_interval'] == 0:
-            print(f"Epoch {epoch}: Loss: {loss.item()}")
+            print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
 
     # Save the new decoder
     torch.save(decoder.state_dict(), params['decoder_torch_weights_file'])
@@ -229,6 +309,10 @@ if __name__ == "__main__":
     params = hyperparameters.load_params(args['exp_file'])
     params["char_file"] = main_dir / os.path.join("checkpoints/zinc_properties", params["char_file"])
     params["data_file"] = main_dir / os.path.join("checkpoints/zinc_properties", params["data_file"])
-    
+
+    params["pretrained_encoder_file"] = main_dir / "checkpoints/zinc_properties/pretrained_encoder.pt"
+    params["pretrained_decoder_file"] = main_dir / "checkpoints/zinc_properties/pretrained_decoder.pt"
+    params["pretrained_predictor_file"] = main_dir / "checkpoints/zinc_properties/pretrained_predictor.pt"
+
     print("All params:", params)
     train_decoder(params)

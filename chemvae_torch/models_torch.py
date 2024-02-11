@@ -133,6 +133,9 @@ class EncoderModel(nn.Module):
         :param x: input tensor
         :return: mean and last encoding layer for std dev sampling
         """
+        # Transpose input
+        x = x.transpose(2, 1)
+
         # Convolution layers
         for i in range(len(self.conv_layers)):
             x = self.conv_layers[i](x)
@@ -211,7 +214,7 @@ class DecoderModel(nn.Module):
         # self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], batch_first=True)
         self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
 
-    def forward(self, z_in):
+    def forward(self, z_in, targets=None):
         """
         Forward pass.
 
@@ -227,7 +230,15 @@ class DecoderModel(nn.Module):
             for i in range(len(self.x_dec)):
                 z_reps, _ = self.x_dec[i](z_reps)
         x_dec = z_reps
-        x_out, _ = self.x_out(x_dec)
+
+        if self.training and targets is None:
+            raise KeyError("The decoder is in training mode, but no targets were provided.")
+
+        if self.training:
+            # teacher forcing with the targets
+            x_out, _ = self.x_out(x_dec, targets=targets)
+        else:
+            x_out, _ = self.x_out(x_dec)
 
         return x_out
 
@@ -412,7 +423,25 @@ class CustomGRU(torch.nn.Module):
         # for _ in range(1, num_layers):
         #     self.cells.append(CustomGRUCell(hidden_size, hidden_size))
 
-    def forward(self, inputs, hx=None):
+    # def forward(self, inputs, hx=None):
+    #     """
+    #     Forward pass.
+
+    #     :param inputs: input tensor
+    #     :param hx: hidden state
+    #     :return: output tensor
+    #     """
+    #     if hx is None:
+    #         hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
+    #     # inputs: batch_size x seq_len x input_size
+    #     outputs = []
+    #     for i in range(inputs.size(1)):
+    #         hx[:, i + 1] = self.cell(inputs[:, i], hx[:, i])
+    #         outputs.append(hx[:, i + 1])
+
+    #     return torch.stack(outputs, dim=1), hx
+    
+    def forward(self, inputs, targets=None, hx=None):
         """
         Forward pass.
 
@@ -421,15 +450,27 @@ class CustomGRU(torch.nn.Module):
         :return: output tensor
         """
         if hx is None:
-            hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
+            # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
+            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
         # inputs: batch_size x seq_len x input_size
         outputs = []
+        
+        # Creating a tensor that contains the targets + zeros at the beginning 
+        # (first iteration has no teacher forcing)
+        if targets is not None:
+            targets_and_zeros = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
+            targets_and_zeros[:, 1:, :] = targets
+        
         for i in range(inputs.size(1)):
-            hx[:, i + 1] = self.cell(inputs[:, i], hx[:, i])
-            outputs.append(hx[:, i + 1])
+            if self.training:
+                # Use teacher forcing by replacing the computed hidden state with the actual previous target
+                next_hidden = self.cell(inputs[:, i], targets_and_zeros[:, i])
+            else:
+                next_hidden = self.cell(inputs[:, i], hx[:, i])
+            hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
+            outputs.append(next_hidden)
 
         return torch.stack(outputs, dim=1), hx
-
 
 
 class AE_PP_Model(nn.Module):
@@ -443,11 +484,11 @@ class AE_PP_Model(nn.Module):
         self.decoder = decoder
         self.property_predictor = property_predictor
 
-        self.model_loss_weights = params["model_loss_weights"]
+        self.loss_weights = params["model_loss_weights"]
         self.hidden_dim = params["hidden_dim"]
 
         # similar to the layer found in models.variational_layers (original code)
-        self.logvar_layer = nn.Linear(encoder.output_dim, hidden_dim)
+        self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -468,25 +509,30 @@ class AE_PP_Model(nn.Module):
         z = self.reparameterize(mu, logvar)
         
         # Decode the latent variable
-        reconstruction = self.decoder(z)
+        reconstruction = self.decoder(z, x)
         
         return reconstruction, prediction, mu, logvar
 
     def loss_function(self, reconstruction, prediction, mu, logvar, x, y):
+
         # Compute reconstruction loss
         reconstruction_criterion = nn.CrossEntropyLoss()
+        
+        # reshaping to 2D tensors
+        reconstruction = reconstruction.view(reconstruction.size(0), -1)
+        x = x.view(x.size(0), -1)
         reconstruction_loss = reconstruction_criterion(reconstruction, x)
 
-        # Compute KL divergence
-        kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())\
+        # Compute KL loss
+        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
         # Compute prediction loss
         prediction_criterion = nn.MSELoss()
         prediction_loss = prediction_criterion(prediction, y)
 
         # Total loss
-        total_loss = reconstruction_loss * model_loss_weights["reconstruction_loss"] \
-                    + kl_loss * model_loss_weights["kl_loss"] \
-                    + prediction_loss * model_loss_weights["prediction_loss"]
+        total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
+                    + kl_loss * self.loss_weights["kl_loss"] \
+                    + prediction_loss * self.loss_weights["prediction_loss"]
 
-        return total_loss
+        return total_loss, reconstruction_loss, kl_loss, prediction_loss
