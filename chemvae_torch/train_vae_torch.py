@@ -98,6 +98,8 @@ def vectorize_data(params):
     else:
         smiles = mu.load_smiles_and_data_df(params['data_file'], MAX_LEN)
 
+    # print("NUMBER OF SAMPLES L<120: ", len(smiles))
+
     if 'limit_data' in params.keys():
         sample_idx = np.random.choice(np.arange(len(smiles)), params['limit_data'], replace=False)
         smiles=list(np.array(smiles)[sample_idx])
@@ -222,12 +224,12 @@ def train_decoder(params):
         "x_out.cell.bias_hh"
     ]
 
-    for name, param in vae.decoder.named_parameters():
-        print(name)
-        if name in layers_to_train:
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
+    # for name, param in vae.decoder.named_parameters():
+    #     print(name)
+    #     if name in layers_to_train:
+    #         param.requires_grad = True
+    #     else:
+    #         param.requires_grad = False
     
     # Freeze property predictor
     for param in vae.property_predictor.parameters():
