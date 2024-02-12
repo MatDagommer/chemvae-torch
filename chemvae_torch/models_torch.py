@@ -515,7 +515,7 @@ class AE_PP_Model(nn.Module):
             reconstruction = self.decoder(mu, x)
         else:
             # with sampling (classic VAE training)
-            reconstruction -= self.decoder(z, x)
+            reconstruction = self.decoder(z, x)
         
         return reconstruction, prediction, mu, logvar
 
