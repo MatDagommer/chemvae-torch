@@ -139,7 +139,7 @@ class EncoderModel(nn.Module):
         # Convolution layers
         for i in range(len(self.conv_layers)):
             x = self.conv_layers[i](x)
-            x = F.tanh(x)  # activation
+            x = torch.tanh(x)  # activation
             if self.params["batchnorm_conv"]:
                 x = self.conv_norm_layers[i](x)
 
@@ -152,7 +152,7 @@ class EncoderModel(nn.Module):
             for i in range(len(self.middle_layers)):
                 # print("TEST: ", i)
                 x = self.middle_layers[i](x)
-                x = F.tanh(x)
+                x = torch.tanh(x)
                 if self.params["dropout_rate_mid"] > 0:
                     x = self.dropout_layers[i](x)
                 if self.params["batchnorm_mid"]:
@@ -309,16 +309,16 @@ class PropertyPredictorModel(nn.Module):
         """
         out = self.ls_in(x)
         # out = self.activation(out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.dropout(out)
 
         # for hidden_layer in self.hidden_layers:
         out = self.hidden_layers[0](out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.hidden_layers[1](out)
         out = self.hidden_layers[2](out)
         out = self.hidden_layers[3](out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.hidden_layers[4](out)
         out = self.hidden_layers[5](out)
 
