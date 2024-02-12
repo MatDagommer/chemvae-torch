@@ -486,6 +486,7 @@ class AE_PP_Model(nn.Module):
 
         self.loss_weights = params["model_loss_weights"]
         self.hidden_dim = params["hidden_dim"]
+        self.use_mu = params["use_mu"]
 
         # similar to the layer found in models.variational_layers (original code)
         self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
@@ -509,7 +510,12 @@ class AE_PP_Model(nn.Module):
         z = self.reparameterize(mu, logvar)
         
         # Decode the latent variable
-        reconstruction = self.decoder(z, x)
+        if self.use_mu:
+            # decoding using the mean only (no stochasticity)
+            reconstruction = self.decoder(mu, x)
+        else:
+            # with sampling (classic VAE training)
+            reconstruction -= self.decoder(z, x)
         
         return reconstruction, prediction, mu, logvar
 
