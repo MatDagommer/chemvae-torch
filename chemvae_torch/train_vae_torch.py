@@ -281,13 +281,17 @@ def train_decoder(params):
             expected = hot_to_smiles(test_sample.detach().numpy(), indices_char)[0]
             computed = hot_to_smiles(recon_test.detach().numpy(), indices_char)[0]
 
-            print("Epoch {} Batch {}. Expected: {}. Computed: {}".format(epoch, batch_idx, expected, computed))
+            max_length = max(len(expected), len(computed))
 
+            # Format and print the strings with alignment
+            print("Epoch {} Batch {}.".format(epoch, batch_idx))
+            print(f"Target: {expected:<{max_length}}")
+            print(f"Output: {computed:<{max_length}}")
 
         # Print some metrics or do logging
         if epoch % params['log_interval'] == 0:
             print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
-
+            
     # Save the new decoder
     torch.save(decoder.state_dict(), params['decoder_torch_weights_file'])
 

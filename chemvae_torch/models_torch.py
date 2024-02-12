@@ -509,7 +509,7 @@ class AE_PP_Model(nn.Module):
         z = self.reparameterize(mu, logvar)
         
         # Decode the latent variable
-        reconstruction = self.decoder(mu, x)
+        reconstruction = self.decoder(z, x)
         
         return reconstruction, prediction, mu, logvar
 
