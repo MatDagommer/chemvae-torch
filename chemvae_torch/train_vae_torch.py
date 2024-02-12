@@ -321,4 +321,6 @@ if __name__ == "__main__":
     params["pretrained_predictor_file"] = main_dir / "checkpoints/zinc_properties/pretrained_predictor.pt"
 
     print("All params:", params)
+
+    print("GPU available? {}".format(torch.cuda.is_available()))
     train_decoder(params)
