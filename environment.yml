@@ -18,3 +18,4 @@ dependencies:
       - tensorflow==2.15.0
       - torch==2.2.0
       - torchsummary==1.5.1
+      - scikit-learn==1.4.0
