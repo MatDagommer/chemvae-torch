@@ -31,7 +31,7 @@
   "hg_growth_factor": 1.2281884874932403,
   "middle_layer": 1,
   "prop_hidden_dim": 67,
-  "batch_size": 100,
+  "batch_size": 182,
   "prop_pred_depth": 3,
   "lr": 0.00045619868229310396,
   "prop_pred_dropout": 0.15694573998898703,
