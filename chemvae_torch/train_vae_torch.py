@@ -171,6 +171,7 @@ def vectorize_data(params):
 
 def train_decoder(params):
     start_time = time.time()
+    device = params["device"]
 
     # Load data
     X_train, X_test, Y_train, Y_test = vectorize_data(params)
@@ -180,11 +181,12 @@ def train_decoder(params):
     Y_test = Y_test[0]
 
     # Convert data to torch tensors
-    X_train = torch.from_numpy(X_train).float()
-    X_test = torch.from_numpy(X_test).float()
-    Y_train = torch.from_numpy(Y_train).float()
-    Y_test = torch.from_numpy(Y_test).float()
+    X_train = torch.from_numpy(X_train).float().to(device)
+    X_test = torch.from_numpy(X_test).float().to(device)
+    Y_train = torch.from_numpy(Y_train).float().to(device)
+    Y_test = torch.from_numpy(Y_test).float().to(device)
 
+    # Instantiate models
     encoder = EncoderModel(params)
     decoder = DecoderModel(params)
     property_predictor = PropertyPredictorModel(params)
@@ -194,7 +196,7 @@ def train_decoder(params):
     decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
     property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
 
-    # loss weights
+    # Retrieving loss weights
     #NOTE: In original implementation, xent_loss_weight and kl_loss_var are trainable
     xent_loss_weight = params['xent_loss_weight']
     ae_loss_weight = 1. - params['prop_pred_loss_weight']
@@ -211,6 +213,12 @@ def train_decoder(params):
     params['lr']
     
     vae = AE_PP_Model(encoder, decoder, property_predictor, params)
+
+    # move models to GPU
+    encoder = encoder.to(device)
+    decoder = decoder.to(device)
+    property_predictor = property_predictor.to(device)
+    vae = vae.to(device)
 
     # Freeze encoder
     for param in vae.encoder.parameters():
@@ -278,8 +286,8 @@ def train_decoder(params):
             vae.eval()
             recon_test, _, _, _ = vae.forward(test_sample)
 
-            expected = hot_to_smiles(test_sample.detach().numpy(), indices_char)[0]
-            computed = hot_to_smiles(recon_test.detach().numpy(), indices_char)[0]
+            expected = hot_to_smiles(test_sample.detach().cpu().numpy(), indices_char)[0]
+            computed = hot_to_smiles(recon_test.detach().cpu().numpy(), indices_char)[0]
 
             max_length = max(len(expected), len(computed))
 

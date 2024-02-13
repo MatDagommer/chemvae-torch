@@ -5,7 +5,7 @@
   "char_file": "zinc.json",
   "encoder_weights_file": "zinc_encoder.h5",
   "decoder_weights_file": "zinc_decoder.h5",
-  "decoder_torch_weights_file": "zinc_decoder_torch.h5",
+  "decoder_torch_weights_file": "zinc_decoder_z_torch.h5",
   "prop_pred_weights_file": "zinc_prop_pred.h5",
   "reg_prop_tasks": [
     "qed",
@@ -38,5 +38,6 @@
   "prop_growth_factor": 0.99028340731314179,
   "momentum": 0.99027641036225744,
   "log_interval": 1,
-  "use_mu": true
+  "use_mu": true,
+  "device": "cuda:0"
 }
