@@ -191,26 +191,26 @@ def train_decoder(params):
     decoder = DecoderModel(params)
     property_predictor = PropertyPredictorModel(params)
 
-    # Load pretrained parameters
-    encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
-    decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
-    property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
+    if not params["train_all"]:
+        # Load pretrained parameters
+        encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
+        decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
+        property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
 
     # Retrieving loss weights
-    #NOTE: In original implementation, xent_loss_weight and kl_loss_var are trainable
-    xent_loss_weight = params['xent_loss_weight']
-    ae_loss_weight = 1. - params['prop_pred_loss_weight']
-    kl_loss_var = params['kl_loss_weight']
-    prop_pred_loss_weight = params['prop_pred_loss_weight']
+    #NOTE: In original implementation, xent_loss_weight and kl_loss_weight are trainable
+    ae_loss_weight = 1. - params['prop_pred_loss_weight']  # Autoencoder (Reconstruction + KL)
+    xent_loss_weight = params['xent_loss_weight'] # Reconstruction (AE 1/2)
+    kl_loss_weight = params['kl_loss_weight'] # KL (AE 2/2)
+    prop_pred_loss_weight = params['prop_pred_loss_weight'] # Property Prediction
     
     model_loss_weights = {
+                    'ae_loss': ae_loss_weight,
                     'reconstruction_loss': ae_loss_weight * xent_loss_weight,
-                    'kl_loss': ae_loss_weight * kl_loss_var,
                     'prediction_loss': prop_pred_loss_weight
                     }
     
     params["model_loss_weights"] = model_loss_weights
-    params['lr']
     
     vae = AE_PP_Model(encoder, decoder, property_predictor, params)
 
@@ -220,28 +220,14 @@ def train_decoder(params):
     property_predictor = property_predictor.to(device)
     vae = vae.to(device)
 
-    # Freeze encoder
-    for param in vae.encoder.parameters():
-        param.requires_grad = False
-    
-    # Freeze all decoder layers except terminal GRU
-    layers_to_train = [
-        "x_out.cell.weight_ih",
-        "x_out.cell.weight_hh",
-        "x_out.cell.bias_ih",
-        "x_out.cell.bias_hh"
-    ]
-
-    # for name, param in vae.decoder.named_parameters():
-    #     print(name)
-    #     if name in layers_to_train:
-    #         param.requires_grad = True
-    #     else:
-    #         param.requires_grad = False
-    
-    # Freeze property predictor
-    for param in vae.property_predictor.parameters():
-        param.requires_grad = False
+    if not params["train_all"]:
+        # Freeze encoder
+        for param in vae.encoder.parameters():
+            param.requires_grad = False
+        
+        # Freeze property predictor
+        for param in vae.property_predictor.parameters():
+            param.requires_grad = False
 
     # Define optimizer
     if params['optim'] == 'adam':
@@ -274,9 +260,25 @@ def train_decoder(params):
             vae.train()
             optimizer.zero_grad()
 
+            # update KL loss weight based on schedule
+            kl_loss_weight = sigmoid_schedule(
+                epoch,
+                slope=params["anneal_sigmod_slope"],
+                start=params["vae_annealer_start"],
+                weight_orig=params["kl_loss_weight"]
+            )
+
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x)
-            loss, recon_loss, _, _ = vae.loss_function(reconstruction, prediction, mu, logvar, x, y)
+            loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
+                reconstruction=reconstruction, 
+                prediction=prediction, 
+                mu=mu, 
+                logvar=logvar, 
+                x=x, 
+                y=y,
+                kl_loss_weight=kl_loss_weight,
+            )
 
             # Backward pass and optimize
             loss.backward()
@@ -293,12 +295,19 @@ def train_decoder(params):
 
             # Format and print the strings with alignment
             print("Epoch {} Batch {}.".format(epoch, batch_idx))
+
+            print(f"Losses - REC: {recon_loss.item()} \
+                  KL: {kl_loss.item()} \
+                  PRED: {pred_loss.item()} \
+                  TOT: {loss.item()}")
+            
+            # Print test strings (target and output)
             print(f"Target: {expected:<{max_length}}")
             print(f"Output: {computed:<{max_length}}")
 
         # Print some metrics or do logging
-        if epoch % params['log_interval'] == 0:
-            print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
+        # if epoch % params['log_interval'] == 0:
+        #     print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
             
     # Save the new decoder
     torch.save(decoder.state_dict(), params['decoder_torch_weights_file'])
@@ -307,6 +316,20 @@ def train_decoder(params):
     print('**FINISHED**')
 
     return
+
+def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
+    """
+    Sigmoid annealing.
+
+    :param time_step: epoch number
+    :param slope: slope of the sigmoid
+    :param start: starting point of the annealing
+    :param weight_orig: value of the weight at time_step=0
+    :return: sigmoid annealing weight
+    """
+    # Inverted float(time_step) and start wrt the original function
+    # The function should be decreasing with the time_step for weight annealing
+    return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
 
 
 if __name__ == "__main__":

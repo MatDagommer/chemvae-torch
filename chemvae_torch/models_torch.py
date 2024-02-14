@@ -519,7 +519,7 @@ class AE_PP_Model(nn.Module):
         
         return reconstruction, prediction, mu, logvar
 
-    def loss_function(self, reconstruction, prediction, mu, logvar, x, y):
+    def loss_function(self, reconstruction, prediction, mu, logvar, x, y, kl_loss_weight):
 
         # Compute reconstruction loss
         reconstruction_criterion = nn.CrossEntropyLoss()
@@ -538,7 +538,7 @@ class AE_PP_Model(nn.Module):
 
         # Total loss
         total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
-                    + kl_loss * self.loss_weights["kl_loss"] \
+                    + kl_loss * kl_loss_weight * self.loss_weights["ae_loss"] \
                     + prediction_loss * self.loss_weights["prediction_loss"]
 
         return total_loss, reconstruction_loss, kl_loss, prediction_loss

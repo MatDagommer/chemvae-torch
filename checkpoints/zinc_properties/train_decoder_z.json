@@ -39,5 +39,6 @@
   "momentum": 0.99027641036225744,
   "log_interval": 1,
   "use_mu": false,
-  "device": "cuda:0"
+  "device": "cuda:0",
+  "train_all": false
 }
