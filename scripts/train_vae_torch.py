@@ -198,9 +198,9 @@ def train_decoder(params):
     # Load pretrained parameters
     checkpoints_path = Path(__file__).resolve().parent.parent / "checkpoints/zinc_properties" 
     if not params["train_all"]:
-        encoder.load_state_dict(str(checkpoints_path / torch.load(params['pretrained_encoder_file'])))
-        decoder.load_state_dict(str(checkpoints_path / torch.load(params['pretrained_decoder_file'])))
-        property_predictor.load_state_dict(str(checkpoints_path / torch.load(params['pretrained_predictor_file'])))
+        encoder.load_state_dict(torch.load(str(checkpoints_path / params['pretrained_encoder_file'])))
+        decoder.load_state_dict(torch.load(str(checkpoints_path / params['pretrained_decoder_file'])))
+        property_predictor.load_state_dict(torch.load(str(checkpoints_path / params['pretrained_predictor_file'])))
 
     # Retrieving loss weights
     #NOTE: In original implementation, xent_loss_weight and kl_loss_weight are trainable
