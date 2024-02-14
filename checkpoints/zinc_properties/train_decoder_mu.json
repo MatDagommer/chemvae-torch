@@ -1,11 +1,11 @@
 {
-  "name": "zinc_prop",
+  "name": "train_decoder_mu",
   "MAX_LEN": 120,
   "data_file": "250k_rndm_zinc_drugs_clean_3.csv",
   "char_file": "zinc.json",
   "encoder_weights_file": "zinc_encoder.h5",
   "decoder_weights_file": "zinc_decoder.h5",
-  "decoder_torch_weights_file": "zinc_decoder_z_torch.h5",
+  "decoder_torch_weights_file": "zinc_decoder.pt",
   "prop_pred_weights_file": "zinc_prop_pred.h5",
   "reg_prop_tasks": [
     "qed",

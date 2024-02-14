@@ -1,7 +1,7 @@
 """CLI for stability_vae."""
 import typer
 
-from stability_vae.example import hello_world
+from chemvae_torch.example import hello_world
 
 app = typer.Typer()
 
