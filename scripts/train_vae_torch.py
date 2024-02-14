@@ -314,14 +314,9 @@ def train_decoder(params):
         #     print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
     
     # Save model weights
-    exp_path = params["exp_path"]
-    if not exp_path.exists():
-        # Create the folder
-        exp_path.mkdir(parents=True)
-
-    torch.save(decoder.state_dict(), str(exp_path / params['decoder_torch_weights_file']))
-    torch.save(encoder.state_dict(), str(exp_path / params['encoder_torch_weights_file']))
-    torch.save(property_predictor.state_dict(), str(exp_path / params['prop_pred_torch_weights_file']))
+    torch.save(decoder.state_dict(), str(params["exp_path"] / params['decoder_torch_weights_file']))
+    torch.save(encoder.state_dict(), str(params["exp_path"] / params['encoder_torch_weights_file']))
+    torch.save(property_predictor.state_dict(), str(params["exp_path"] / params['prop_pred_torch_weights_file']))
     
 
     print('time of run : ', time.time() - start_time)
@@ -364,6 +359,12 @@ if __name__ == "__main__":
     params["pretrained_predictor_file"] = main_dir / "checkpoints/zinc_properties/pretrained_predictor.pt"
 
     params["exp_path"] = main_dir / "exps" / params["name"]
+
+    exp_path = params["exp_path"]
+    if not exp_path.exists():
+        # Create the folder
+        exp_path.mkdir(parents=True)
+
     if "test_idx_file" in params.keys():
         params['test_idx_file'] = params["exp_path"] / params['test_idx_file']
 
