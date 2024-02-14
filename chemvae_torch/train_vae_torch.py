@@ -1,4 +1,9 @@
-import sys; sys.path.append('../')
+from pathlib import Path
+project_path = Path(__file__).resolve().parent.parent
+import sys
+sys.path.append(str(project_path))
+print(project_path)
+
 import time
 import torch
 import torch.nn as nn
@@ -10,7 +15,6 @@ from functools import partial
 from chemvae_torch.models_torch import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
 from chemvae_torch import hyperparameters
 import argparse
-from pathlib import Path
 import os
 import yaml
 import chemvae_torch.mol_utils as mu
@@ -308,9 +312,17 @@ def train_decoder(params):
         # Print some metrics or do logging
         # if epoch % params['log_interval'] == 0:
         #     print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
-            
-    # Save the new decoder
-    torch.save(decoder.state_dict(), params['decoder_torch_weights_file'])
+    
+    # Save model weights
+    exp_path = Path(__file__).resolve().parent.parent / "exps" / params["name"]
+    if not exp_path.exists():
+        # Create the folder
+        exp_path.mkdir(parents=True)
+
+    torch.save(decoder.state_dict(), exp_path / params['decoder_torch_weights_file'])
+    torch.save(encoder.state_dict(), exp_path / params['encoder_torch_weights_file'])
+    torch.save(property_predictor.state_dict(), exp_path / params['prop_pred_torch_weights_file'])
+    
 
     print('time of run : ', time.time() - start_time)
     print('**FINISHED**')
@@ -354,4 +366,5 @@ if __name__ == "__main__":
     print("All params:", params)
 
     print("GPU available? {}".format(torch.cuda.is_available()))
+
     train_decoder(params)
