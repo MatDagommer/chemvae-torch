@@ -300,10 +300,8 @@ def train_decoder(params):
             # Format and print the strings with alignment
             print("Epoch {} Batch {}.".format(epoch, batch_idx))
 
-            print(f"Losses - REC: {recon_loss.item()} \
-                  KL: {kl_loss.item()} \
-                  PRED: {pred_loss.item()} \
-                  TOT: {loss.item()}")
+            # Print Losses
+            print(f"Losses - REC: {recon_loss.item()} KL: {kl_loss.item()} PRED: {pred_loss.item()} TOT: {loss.item()}")
             
             # Print test strings (target and output)
             print(f"Target: {expected:<{max_length}}")
@@ -336,8 +334,8 @@ def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
     """
     # Inverted float(time_step) and start wrt the original function
     # The function should be decreasing with the time_step for weight annealing
-    # return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
-    return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
+    return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
+    # return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
 
 
 if __name__ == "__main__":

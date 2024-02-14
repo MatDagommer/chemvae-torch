@@ -494,7 +494,13 @@ class AE_PP_Model(nn.Module):
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        return mu + eps * std
+        print("std shape: ", std.size())
+        print("std mean: ", torch.mean(std))
+        print("eps shape:", eps.size())
+        print("eps mean: ", torch.mean(eps))
+        z = mu + eps * std
+        print("z shape:", z.size())
+        return z
 
     def forward(self, x):
         # Encode input - returns mean and encoder output
@@ -516,7 +522,7 @@ class AE_PP_Model(nn.Module):
         else:
             # with sampling (classic VAE training)
             reconstruction = self.decoder(z, x)
-        
+
         return reconstruction, prediction, mu, logvar
 
     def loss_function(self, reconstruction, prediction, mu, logvar, x, y, kl_loss_weight):
