@@ -491,18 +491,13 @@ class AE_PP_Model(nn.Module):
         # similar to the layer found in models.variational_layers (original code)
         self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
 
-    def reparameterize(self, mu, logvar):
+    def reparameterize(self, mu, logvar, kl_loss_weight):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        print("std shape: ", std.size())
-        print("std mean: ", torch.mean(std))
-        print("eps shape:", eps.size())
-        print("eps mean: ", torch.mean(eps))
-        z = mu + eps * std
-        print("z shape:", z.size())
+        z = mu + eps * std * kl_loss_weight
         return z
 
-    def forward(self, x):
+    def forward(self, x, kl_loss_weight=None):
         # Encode input - returns mean and encoder output
         mu, encoder_output = self.encoder(x)
         
@@ -512,8 +507,11 @@ class AE_PP_Model(nn.Module):
         # Compute log variance from the encoder's output
         logvar = self.logvar_layer(encoder_output)
         
+        if kl_loss_weight is None:
+            kl_loss_weight = 0
+
         # Reparameterization trick to sample from the latent space
-        z = self.reparameterize(mu, logvar)
+        z = self.reparameterize(mu, logvar, kl_loss_weight)
         
         # Decode the latent variable
         if self.use_mu:

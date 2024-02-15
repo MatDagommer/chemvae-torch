@@ -273,7 +273,7 @@ def train_decoder(params):
             )
 
             # Forward pass
-            reconstruction, prediction, mu, logvar = vae.forward(x)
+            reconstruction, prediction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
             loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
                 reconstruction=reconstruction, 
                 prediction=prediction, 
@@ -334,8 +334,8 @@ def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
     """
     # Inverted float(time_step) and start wrt the original function
     # The function should be decreasing with the time_step for weight annealing
-    return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
-    # return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
+    # return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
+    return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
 
 
 if __name__ == "__main__":
