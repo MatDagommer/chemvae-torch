@@ -312,9 +312,9 @@ def train_decoder(params):
         #     print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
     
     # Save model weights
-    torch.save(decoder.state_dict(), str(params["exp_path"] / params['decoder_torch_weights_file']))
-    torch.save(encoder.state_dict(), str(params["exp_path"] / params['encoder_torch_weights_file']))
-    torch.save(property_predictor.state_dict(), str(params["exp_path"] / params['prop_pred_torch_weights_file']))
+    torch.save(decoder.state_dict(), str(params["exp_path"] / params['decoder_weights_file']))
+    torch.save(encoder.state_dict(), str(params["exp_path"] / params['encoder_weights_file']))
+    torch.save(property_predictor.state_dict(), str(params["exp_path"] / params['prop_pred_weights_file']))
     
 
     print('time of run : ', time.time() - start_time)
@@ -340,30 +340,33 @@ def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--exp_file',
-                        help='experiment file', default='exp.json')
+    parser.add_argument('-e', '--exp',
+                        help='experiment name', default='test')
     args = vars(parser.parse_args())
 
     # Get the main directory absolute path
     main_dir = Path(__file__).resolve().parent.parent
-    relative_path = os.path.join("checkpoints/zinc_properties", args["exp_file"])
-    args['exp_file'] = main_dir / relative_path
-    
-    params = hyperparameters.load_params(args['exp_file'])
-    params["char_file"] = main_dir / os.path.join("checkpoints/zinc_properties", params["char_file"])
-    params["data_file"] = main_dir / os.path.join("checkpoints/zinc_properties", params["data_file"])
-
-    params["pretrained_encoder_file"] = main_dir / "checkpoints/zinc_properties/pretrained_encoder.pt"
-    params["pretrained_decoder_file"] = main_dir / "checkpoints/zinc_properties/pretrained_decoder.pt"
-    params["pretrained_predictor_file"] = main_dir / "checkpoints/zinc_properties/pretrained_predictor.pt"
-
-    params["exp_path"] = main_dir / "exps" / params["name"]
-
-    exp_path = params["exp_path"]
+    exp_path = main_dir / os.path.join("exps", args["exp"])
     if not exp_path.exists():
         # Create the folder
         exp_path.mkdir(parents=True)
+    
+    params = hyperparameters.load_params(exp_path / "exp.json")
+    params["char_file"] = main_dir / os.path.join("data", params["char_file"])
+    params["data_file"] = main_dir / os.path.join("data", params["data_file"])
 
+    if params["pretrained"]:
+
+        pretrained_weights_path = main_dir / "exps" / params["pretrained_weights"]
+        if not pretrained_weights_path.exists():
+            raise NameError(f"Pretrained weights folder {pretrained_weights_path} does not exist.")
+
+        params["pretrained_encoder_file"] = pretrained_weights_path / "encoder.pt"
+        params["pretrained_decoder_file"] = pretrained_weights_path / "decoder.pt"
+        params["pretrained_predictor_file"] = pretrained_weights_path / "prop_pred.pt"
+
+    params["exp_path"] = exp_path
+    
     if "test_idx_file" in params.keys():
         params['test_idx_file'] = params["exp_path"] / params['test_idx_file']
 
