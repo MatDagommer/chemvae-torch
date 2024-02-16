@@ -31,7 +31,7 @@ from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, sigmoid_sch
 # decoder = YourDecoderModel()
 # property_predictor = YourPropertyPredictorModel()
 
-def train_decoder(params):
+def train(params):
     start_time = time.time()
     device = params["device"]
 
@@ -54,7 +54,7 @@ def train_decoder(params):
     property_predictor = PropertyPredictorModel(params)
 
     # Load pretrained parameters 
-    if not params["train_all"]:
+    if params["pretrained"]:
         encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
         decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
         property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
@@ -217,4 +217,4 @@ if __name__ == "__main__":
 
     print("GPU available? {}".format(torch.cuda.is_available()))
 
-    train_decoder(params)
+    train(params)
