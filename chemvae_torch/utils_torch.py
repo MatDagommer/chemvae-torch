@@ -156,6 +156,5 @@ def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
     :return: sigmoid annealing weight
     """
     # Inverted float(time_step) and start wrt the original function
-    # The function should be decreasing with the time_step for weight annealing
-    return weight_orig * float(1 / (1.0 + np.exp(slope * (float(time_step) - start))))
-    # return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
+    # The function should be increasing with the time_step for weight annealing
+    return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))

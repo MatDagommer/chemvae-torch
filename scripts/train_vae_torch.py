@@ -120,7 +120,7 @@ def train(params):
         for batch_idx, (x, y) in enumerate(train_loader):
 
             vae.train()
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
 
             # update KL loss weight based on schedule
             kl_loss_weight = sigmoid_schedule(
