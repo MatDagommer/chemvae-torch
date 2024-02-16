@@ -495,7 +495,7 @@ class AE_PP_Model(nn.Module):
     def reparameterize(self, mu, logvar, kl_loss_weight):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        z = mu + eps * std * kl_loss_weight
+        z = mu # + eps * std * kl_loss_weight
         print("KL loss weight: ", kl_loss_weight)
         return z
 
