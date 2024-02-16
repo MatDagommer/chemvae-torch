@@ -78,7 +78,7 @@ class EncoderModel(nn.Module):
         self.conv_layers.append(conv_layer)
         if params["batchnorm_conv"]:
             # norm_layer = nn.BatchNorm1d(out_channels)
-            norm_layer = nn.BatchNorm1d(out_channels)
+            norm_layer = CustomBatchNorm1d(out_channels)
             self.conv_norm_layers.append(norm_layer)
 
         in_channels = out_channels
@@ -91,7 +91,7 @@ class EncoderModel(nn.Module):
 
             if params["batchnorm_conv"]:
                 # norm_layer = nn.BatchNorm1d(out_channels)
-                norm_layer = nn.BatchNorm1d(out_channels)
+                norm_layer = CustomBatchNorm1d(out_channels)
                 self.conv_norm_layers.append(norm_layer)
 
             in_channels = out_channels
@@ -118,7 +118,7 @@ class EncoderModel(nn.Module):
 
                 if params["batchnorm_mid"]:
                     # norm_layer = nn.BatchNorm1d(out_features)
-                    norm_layer = nn.BatchNorm1d(out_features)
+                    norm_layer = CustomBatchNorm1d(out_features)
                     self.middle_norm_layers.append(norm_layer)
 
                 in_features = out_features
@@ -185,7 +185,7 @@ class DecoderModel(nn.Module):
             nn.Linear(params["hidden_dim"], int(params["hidden_dim"])),
             nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
             # nn.BatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity()
-            nn.BatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
+            CustomBatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
         )
 
         for i in range(1, params["middle_layer"]):
@@ -198,7 +198,7 @@ class DecoderModel(nn.Module):
                     ),
                     nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
                     # nn.BatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i))) if params["batchnorm_mid"] else nn.Identity()
-                    nn.BatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
+                    CustomBatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
                     if params["batchnorm_mid"]
                     else nn.Identity(),
                 ),
@@ -282,7 +282,7 @@ class PropertyPredictorModel(nn.Module):
 
                 if params["prop_batchnorm"]:
                     # norm_layer = nn.BatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
-                    norm_layer = nn.BatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
+                    norm_layer = CustomBatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
                     self.hidden_layers.append(norm_layer)
 
         # Regression tasks
@@ -490,7 +490,7 @@ class AE_PP_Model(nn.Module):
 
         # similar to the layer found in models.variational_layers (original code)
         self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.batch_norm_vae = nn.BatchNorm1d(self.hidden_dim)
+        self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
 
     def reparameterize(self, mu, logvar, kl_loss_weight):
         std = torch.exp(0.5 * logvar)
