@@ -496,6 +496,7 @@ class AE_PP_Model(nn.Module):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         z = mu + eps * std * kl_loss_weight
+        print("KL loss weight: ", kl_loss_weight)
         return z
 
     def forward(self, x, kl_loss_weight=None):
