@@ -236,9 +236,9 @@ class DecoderModel(nn.Module):
 
         if self.training:
             # teacher forcing with the targets
-            x_out, _ = self.x_out(x_dec, targets=targets)
+            x_out, _ = self.x_out.forward(x_dec, targets=targets)
         else:
-            x_out, _ = self.x_out(x_dec)
+            x_out, _ = self.x_out.forward(x_dec)
 
         return x_out
 
