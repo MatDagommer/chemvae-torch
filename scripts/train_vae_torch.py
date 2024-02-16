@@ -93,8 +93,8 @@ def train(params):
 
     # Define optimizer
     if params['optim'] == 'adam':
-        # optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
-        optimizer = optim.Adam(vae.parameters())
+        optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
+        # optimizer = optim.Adam(vae.parameters())
     elif params['optim'] == 'rmsprop':
         optimizer = optim.RMSprop(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
     elif params['optim'] == 'sgd':
