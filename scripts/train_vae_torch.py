@@ -76,7 +76,7 @@ def train(params):
     
     vae = AE_PP_Model(encoder, decoder, property_predictor, params)
 
-    print(vae)
+    # print(vae)
 
     # move models to GPU
     encoder = encoder.to(device)
