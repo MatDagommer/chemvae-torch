@@ -84,6 +84,7 @@ def train(params):
     property_predictor = property_predictor.to(device)
     vae = vae.to(device)
 
+    print("TRAIN ALL: ")
     if not params["train_all"]:
         # Freeze encoder
         for param in vae.encoder.parameters():
@@ -93,8 +94,11 @@ def train(params):
         for param in vae.property_predictor.parameters():
             param.requires_grad = False
     
-    for param in vae.logvar_layer.parameters():
-        param.requires_grad = True
+        for param in vae.logvar_layer.parameters():
+            param.requires_grad = True
+    else:
+        for param in vae.parameters():
+            param.requires_grad = True
 
     # Define optimizer
     if params['optim'] == 'adam':
