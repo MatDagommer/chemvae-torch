@@ -84,7 +84,8 @@ def train(params):
     property_predictor = property_predictor.to(device)
     vae = vae.to(device)
 
-    print("TRAIN ALL: ")
+    print("TRAIN ALL: ", params["train_all"])
+    
     if not params["train_all"]:
         # Freeze encoder
         for param in vae.encoder.parameters():
