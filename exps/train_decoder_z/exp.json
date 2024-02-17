@@ -6,8 +6,8 @@
   "encoder_weights_file": "encoder.h5",
   "decoder_weights_file": "decoder.h5",
   "prop_pred_weights_file": "prop_pred.h5",
-  "pretrained": true,
-  "pretrained_weights": "train_decoder_mu",
+  "pretrained": false,
+  "pretrained_weights": null,
   "reg_prop_tasks": [
     "qed",
     "SAS",
