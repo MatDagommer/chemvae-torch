@@ -76,6 +76,8 @@ def train(params):
     
     vae = AE_PP_Model(encoder, decoder, property_predictor, params)
 
+    print(vae)
+
     # move models to GPU
     encoder = encoder.to(device)
     decoder = decoder.to(device)
@@ -90,6 +92,9 @@ def train(params):
         # Freeze property predictor
         for param in vae.property_predictor.parameters():
             param.requires_grad = False
+    
+    for param in vae.logvar_layer.parameters():
+        param.requires_grad = True
 
     # Define optimizer
     if params['optim'] == 'adam':
@@ -111,6 +116,9 @@ def train(params):
     test_batch, _ = next(iter(test_loader))
     test_sample = test_batch[0:1]
 
+    train_batch, _ = next(iter(train_loader))
+    train_sample = train_batch[0:1]
+
     # retrieving character encoding
     chars = yaml.safe_load(open(params["char_file"]))
     indices_char = dict((i, c) for i, c in enumerate(chars))
@@ -121,7 +129,6 @@ def train(params):
         for batch_idx, (x, y) in enumerate(train_loader):
 
             vae.train()
-            # optimizer.zero_grad()
 
             # update KL loss weight based on schedule
             kl_loss_weight = sigmoid_schedule(
@@ -144,15 +151,20 @@ def train(params):
             )
 
             # Backward pass and optimize
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
             # eval
             vae.eval()
             recon_test, _, _, _ = vae.forward(test_sample)
+            recon_train, _, _, _ = vae.forward(train_sample)
 
             expected = hot_to_smiles(test_sample.detach().cpu().numpy(), indices_char)[0]
             computed = hot_to_smiles(recon_test.detach().cpu().numpy(), indices_char)[0]
+            
+            expected_train = hot_to_smiles(train_sample.detach().cpu().numpy(), indices_char)[0]
+            computed_train = hot_to_smiles(recon_train.detach().cpu().numpy(), indices_char)[0]
 
             max_length = max(len(expected), len(computed))
 
@@ -162,6 +174,12 @@ def train(params):
             # Print Losses
             print(f"Losses - REC: {recon_loss.item()} KL: {kl_loss.item()} PRED: {pred_loss.item()} TOT: {loss.item()}")
             
+            print("TRAIN: ")
+            # Print train strings (target and output)
+            print(f"Target: {expected_train:<{max_length}}")
+            print(f"Output: {computed_train:<{max_length}}")
+
+            print("TEST: ")
             # Print test strings (target and output)
             print(f"Target: {expected:<{max_length}}")
             print(f"Output: {computed:<{max_length}}")
