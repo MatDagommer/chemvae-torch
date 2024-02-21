@@ -472,6 +472,7 @@ class CustomGRU(torch.nn.Module):
         if targets is not None:
             targets_and_zeros = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
             targets_and_zeros[:, 1:, :] = targets
+            print(targets_and_zeros[:, 0, :])
         
         for i in range(inputs.size(1)):
             if self.training:
