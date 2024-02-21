@@ -480,6 +480,9 @@ class CustomGRU(torch.nn.Module):
             else:
                 # predict next hidden state
                 next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
+                # adding a sampling step to retrieve a one-hot
+                next_hidden = F.softmax(next_hidden, dim=1)
+                next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
 
             outputs.append(next_hidden)
