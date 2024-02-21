@@ -143,7 +143,7 @@ def train(params):
                 weight_orig=params["kl_loss_weight"]
             )
 
-            print("requires grad?: ", vae.logvar_layer.requires_grad_)
+            print("requires grad?: ", vae.logvar_layer.weight.requires_grad)
             print("logvar_layer weight: ", vae.logvar_layer.weight[0])
             print("logvar_layer weight grad: ", vae.logvar_layer.weight[0].grad)
             # Forward pass
