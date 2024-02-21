@@ -391,8 +391,8 @@ class CustomGRUCell(GRUCell):
 
         new_gate = F.softmax(
             x_h
-            + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
-            # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
+            # + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
+            + reset_gate * h_h # this line seems to yield better results, although it is incorrect
             + self.bias_ih[2*self.hidden_size:],
             dim=1
         )
@@ -421,8 +421,8 @@ class CustomGRU(torch.nn.Module):
         super(CustomGRU, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        # self.cell = CustomGRUCell(input_size, hidden_size)
         self.cell = CustomGRUCell(input_size, hidden_size)
+        # self.cell = GRUCell(input_size, hidden_size)
         # for _ in range(1, num_layers):
         #     self.cells.append(CustomGRUCell(hidden_size, hidden_size))
 
