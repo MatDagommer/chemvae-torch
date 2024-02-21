@@ -477,13 +477,14 @@ class CustomGRU(torch.nn.Module):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
                 next_hidden = self.cell(inputs[:, i], hx=targets_and_zeros[:, i])
+                print(next_hidden.size())
                 next_hidden = F.softmax(next_hidden, dim=1)
             else:
                 # predict next hidden state
                 hx_ = self.cell(inputs[:, i], hx=hx[:, i])
                 # sampling from the previous hidden state > serves as an output for next cell
                 next_hidden = F.softmax(hx_, dim=1)
-                next_hidden = self.sample_from_probabilities(next_hidden, device=inputs.device)
+                # next_hidden = self.sample_from_probabilities(next_hidden, device=inputs.device)
                 # removed the sampling for now (unlikely to replace continuous hidden state during inference)
                 # next_hidden = hx_
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
