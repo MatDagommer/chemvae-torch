@@ -368,7 +368,7 @@ class CustomGRUCell(GRUCell):
         """
         super(CustomGRUCell, self).__init__(input_size, hidden_size, bias)
         # weights for teacher forcing
-        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True)
+        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True).to(device)
     
     def forward(self, input, hx=None, prev_target=None):
         """
@@ -487,11 +487,11 @@ class CustomGRU(torch.nn.Module):
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_target=targets_and_zeros[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_target=targets_and_zeros[:, i]).to(inputs.device)
                 # next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
             else:
                 # predict next hidden state
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i]).to(inputs.device)
                 # adding a sampling step to retrieve a one-hot
                 # next_hidden = F.softmax(next_hidden, dim=1)
                 # next_hidden = torch.max(next_hidden, dim=1)
@@ -503,7 +503,7 @@ class CustomGRU(torch.nn.Module):
 
             outputs.append(next_hidden)
 
-        return torch.stack(outputs, dim=1), hx
+        return torch.stack(outputs, dim=1).to(inputs.device), hx
 
 
 class AE_PP_Model(nn.Module):
