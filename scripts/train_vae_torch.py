@@ -145,7 +145,7 @@ def train(params):
 
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
-            print(hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
+            print("train (x): ", hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
             loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
                 reconstruction=reconstruction, 
                 prediction=prediction, 
