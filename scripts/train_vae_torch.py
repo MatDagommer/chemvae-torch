@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from sklearn.metrics import accuracy_score
 from functools import partial
-from chemvae_torch.models_torch_new import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
+from chemvae_torch.models_torch import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
 from chemvae_torch import hyperparameters
 import argparse
 import os
