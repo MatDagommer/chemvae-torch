@@ -391,8 +391,8 @@ class CustomGRUCell(GRUCell):
 
         new_gate = F.softmax(
             x_h
-            # + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
-            + reset_gate * h_h # this line seems to yield better results, although it is incorrect
+            + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
+            # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
             + self.bias_ih[2*self.hidden_size:],
             dim=1
         )
@@ -488,7 +488,8 @@ class CustomGRU(torch.nn.Module):
                 next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
                 # adding a sampling step to retrieve a one-hot
                 # next_hidden = F.softmax(next_hidden, dim=1)
-                # next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
+                next_hidden = torch.max(next_hidden, dim=1)
+                next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
 
             outputs.append(next_hidden)
