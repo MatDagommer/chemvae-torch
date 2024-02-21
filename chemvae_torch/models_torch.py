@@ -22,7 +22,7 @@ class CustomBatchNorm1d(nn.Module):
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
-        self.weight = nn.Parameter(torch.Tensor(1, num_features).fill_(1))
+        self.weight = nn.Parameter(torch.Tensor(1, num_features).fill_(0.1))
         self.bias = nn.Parameter(torch.Tensor(1, num_features).fill_(0))
         self.register_buffer("running_mean", torch.zeros(1, num_features))
         self.register_buffer("running_var", torch.ones(1, num_features))
