@@ -34,7 +34,7 @@
     "prop_hidden_dim": 67,
     "batch_size": 182,
     "prop_pred_depth": 3,
-    "lr": 0.00045619868229310396,
+    "lr": 0.0001,
     "prop_pred_dropout": 0.15694573998898703,
     "prop_growth_factor": 0.99028340731314179,
     "momentum": 0.99027641036225744,

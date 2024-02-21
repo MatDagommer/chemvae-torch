@@ -466,7 +466,7 @@ class CustomGRU(torch.nn.Module):
             # hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
-        print(inputs.size())
+        # print(inputs.size())
         # Creating a tensor that contains the targets + zeros at the beginning 
         # (first iteration has no teacher forcing)
         if targets is not None:
