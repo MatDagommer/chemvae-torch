@@ -481,9 +481,9 @@ class CustomGRU(torch.nn.Module):
                 # predict next hidden state
                 hx_ = self.cell(inputs[:, i], hx=hx[:, i])
                 # sampling from the previous hidden state > serves as an output for next cell
-                # next_hidden = self.sample_from_probabilities(hx_)
+                next_hidden = self.sample_from_probabilities(hx_)
                 # removed the sampling for now (unlikely to replace continuous hidden state during inference)
-                next_hidden = hx_
+                # next_hidden = hx_
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
 
             outputs.append(next_hidden)
