@@ -440,15 +440,15 @@ class CustomGRU(torch.nn.Module):
 
     #     return torch.stack(outputs, dim=1), hx
         
-    def sample_from_probabilities(self, prob_tensor):
+    def sample_from_probabilities(self, prob_tensor, device):
         batch_size, hidden_dim = prob_tensor.size()
         
         # Sample indices from the distributions
-        indices = torch.multinomial(prob_tensor, num_samples=1).view(-1)
+        indices = torch.multinomial(prob_tensor, num_samples=1).view(-1).to(device)
         
         # Create the one-hot encoded tensor
-        one_hot = torch.zeros(batch_size, hidden_dim)
-        one_hot.scatter_(1, indices.unsqueeze(1), 1)
+        one_hot = torch.zeros(batch_size, hidden_dim).to(device)
+        one_hot.scatter_(1, indices.unsqueeze(1), 1).to(device)
         
         return one_hot
     
@@ -483,7 +483,7 @@ class CustomGRU(torch.nn.Module):
                 hx_ = self.cell(inputs[:, i], hx=hx[:, i])
                 # sampling from the previous hidden state > serves as an output for next cell
                 next_hidden = F.softmax(hx_, dim=1)
-                next_hidden = self.sample_from_probabilities(next_hidden)
+                next_hidden = self.sample_from_probabilities(next_hidden, device=inputs.device)
                 # removed the sampling for now (unlikely to replace continuous hidden state during inference)
                 # next_hidden = hx_
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
