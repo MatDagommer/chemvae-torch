@@ -520,7 +520,7 @@ class AE_PP_Model(nn.Module):
     def reparameterize(self, mu, logvar, kl_loss_weight):
         std = torch.exp(0.5 * logvar).to(self.device)
         eps = torch.randn_like(std).to(self.device)
-        z = mu + eps * std * kl_loss_weight
+        z = mu + eps * std #  * kl_loss_weight
         return z
 
     def forward(self, x, kl_loss_weight=None):
