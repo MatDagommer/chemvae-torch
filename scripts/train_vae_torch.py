@@ -95,8 +95,8 @@ def train(params):
         for param in vae.property_predictor.parameters():
             param.requires_grad = False
     
-        for param in vae.logvar_layer.parameters():
-            param.requires_grad = True
+        # for param in vae.logvar_layer.parameters():
+        #     param.requires_grad = True
     else:
         for param in vae.parameters():
             param.requires_grad = True
@@ -143,9 +143,9 @@ def train(params):
                 weight_orig=params["kl_loss_weight"]
             )
 
-            print("requires grad?: ", vae.logvar_layer.weight.requires_grad)
-            print("logvar_layer weight: ", vae.logvar_layer.weight[0])
-            print("logvar_layer weight grad: ", vae.logvar_layer.weight[0].grad)
+            # print("requires grad?: ", vae.logvar_layer.weight.requires_grad)
+            # print("logvar_layer weight: ", vae.logvar_layer.weight[0])
+            # print("logvar_layer weight grad: ", vae.logvar_layer.weight[0].grad)
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
             # print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
