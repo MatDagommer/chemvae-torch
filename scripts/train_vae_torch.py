@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from sklearn.metrics import accuracy_score
 from functools import partial
-from chemvae_torch.models_torch import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
+from chemvae_torch.models_torch_new import EncoderModel, DecoderModel, PropertyPredictorModel, AE_PP_Model
 from chemvae_torch import hyperparameters
 import argparse
 import os
@@ -145,6 +145,7 @@ def train(params):
 
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
+            print(hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
             loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
                 reconstruction=reconstruction, 
                 prediction=prediction, 
