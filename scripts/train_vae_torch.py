@@ -18,7 +18,7 @@ import argparse
 import os
 import yaml
 import chemvae_torch.mol_utils as mu
-from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, sigmoid_schedule
+from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, schedule
 
 # Define the models, loss functions, etc.
 # You need to define your PyTorch models and other necessary components here.
@@ -136,7 +136,7 @@ def train(params):
             vae.train()
 
             # update KL loss weight based on schedule
-            kl_loss_weight = sigmoid_schedule(
+            kl_loss_weight = schedule(
                 epoch,
                 slope=params["anneal_sigmod_slope"],
                 start=params["vae_annealer_start"],

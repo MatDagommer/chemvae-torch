@@ -145,16 +145,22 @@ def vectorize_data(params):
         return X_train, X_test
 
 
-def sigmoid_schedule(time_step, slope=1.0, start=None, weight_orig=None):
+def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="linear"):
     """
-    Sigmoid annealing.
+    Annealing function.
 
     :param time_step: epoch number
     :param slope: slope of the sigmoid
-    :param start: starting point of the annealing
+    :param start: epoch at which annealing starts (sigmoid only)
     :param weight_orig: value of the weight at time_step=0
     :return: sigmoid annealing weight
     """
     # Inverted float(time_step) and start wrt the original function
     # The function should be increasing with the time_step for weight annealing
-    return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
+    if mode == "sigmoid":
+        return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(time_step)))))
+    elif mode == "linear":
+        weight_orig = 0
+        weight_final = 1
+        n_epochs = 120
+        return min(weight_final, weight_orig + (weight_final - weight_orig) * (time_step / n_epochs))
