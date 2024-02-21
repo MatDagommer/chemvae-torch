@@ -125,6 +125,8 @@ class EncoderModel(nn.Module):
 
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         self.z_mean = nn.Linear(in_features, params["hidden_dim"])
+        self.z_logvar = nn.Linear(in_features, params["hidden_dim"])
+        
 
     def forward(self, x):
         """
@@ -160,9 +162,11 @@ class EncoderModel(nn.Module):
 
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         z_mean = self.z_mean(x)
+        z_logvar = self.z_logvar(x)
 
         # return both mean and encoder output
-        return z_mean, x
+        # return z_mean, x
+        return z_mean, z_logvar
 
 
 class DecoderModel(nn.Module):
@@ -509,7 +513,7 @@ class AE_PP_Model(nn.Module):
         self.device = device
 
         # similar to the layer found in models.variational_layers (original code)
-        self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
+        # self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
         # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
 
     def reparameterize(self, mu, logvar, kl_loss_weight):
@@ -520,13 +524,14 @@ class AE_PP_Model(nn.Module):
 
     def forward(self, x, kl_loss_weight=None):
         # Encode input - returns mean and encoder output
-        mu, encoder_output = self.encoder(x)
+        # mu, encoder_output = self.encoder(x)
+        mu, logvar = self.encoder(x)
         
         # Retrieving property prediction
         prediction = self.property_predictor(mu)
 
         # Compute log variance from the encoder's output
-        logvar = self.logvar_layer(encoder_output)
+        # logvar = self.logvar_layer(encoder_output)
         
         if kl_loss_weight is None:
             kl_loss_weight = 0
