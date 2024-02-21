@@ -507,7 +507,7 @@ class AE_PP_Model(nn.Module):
         self.use_mu = params["use_mu"]
 
         self.device = device
-        
+
         # similar to the layer found in models.variational_layers (original code)
         self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
         # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
@@ -532,7 +532,7 @@ class AE_PP_Model(nn.Module):
             kl_loss_weight = 0
 
         # Reparameterization trick to sample from the latent space
-        z = self.reparameterize(mu, logvar, kl_loss_weight, self.device)
+        z = self.reparameterize(mu, logvar, kl_loss_weight)
 
         # # batchnormalization
         # z = self.batch_norm_vae(z)
