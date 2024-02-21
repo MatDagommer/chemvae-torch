@@ -184,7 +184,6 @@ class DecoderModel(nn.Module):
         self.z = nn.Sequential(
             nn.Linear(params["hidden_dim"], int(params["hidden_dim"])),
             nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-            # nn.BatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity()
             CustomBatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
         )
 
@@ -197,7 +196,6 @@ class DecoderModel(nn.Module):
                         int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)),
                     ),
                     nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-                    # nn.BatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i))) if params["batchnorm_mid"] else nn.Identity()
                     CustomBatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
                     if params["batchnorm_mid"]
                     else nn.Identity(),
@@ -211,7 +209,6 @@ class DecoderModel(nn.Module):
                     "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
                 )
 
-        # self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], batch_first=True)
         self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
 
     def forward(self, z_in, targets=None):
@@ -364,7 +361,7 @@ class CustomGRUCell(GRUCell):
         :param bias: whether to use bias
         """
         super(CustomGRUCell, self).__init__(input_size, hidden_size, bias)
-
+    
     def forward(self, input, hx=None):
         """
         Forward pass.
@@ -397,7 +394,6 @@ class CustomGRUCell(GRUCell):
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
         return hy
-
 
 class CustomGRU(torch.nn.Module):
     """
@@ -440,6 +436,18 @@ class CustomGRU(torch.nn.Module):
     #         outputs.append(hx[:, i + 1])
 
     #     return torch.stack(outputs, dim=1), hx
+        
+    def sample_from_probabilities(self, prob_tensor):
+        batch_size, hidden_dim = prob_tensor.size()
+        
+        # Sample indices from the distributions
+        indices = torch.multinomial(prob_tensor, num_samples=1).view(-1)
+        
+        # Create the one-hot encoded tensor
+        one_hot = torch.zeros(batch_size, hidden_dim)
+        one_hot.scatter_(1, indices.unsqueeze(1), 1)
+        
+        return one_hot
     
     def forward(self, inputs, targets=None, hx=None):
         """
@@ -451,7 +459,8 @@ class CustomGRU(torch.nn.Module):
         """
         if hx is None:
             # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
+            # hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
+            hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
         
@@ -464,10 +473,16 @@ class CustomGRU(torch.nn.Module):
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], targets_and_zeros[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=targets_and_zeros[:, i])
             else:
-                next_hidden = self.cell(inputs[:, i], hx[:, i])
+                # predict next hidden state
+                hx_ = self.cell(inputs[:, i], hx=hx[:, i])
+                # sampling from the previous hidden state > serves as an output for next cell
+                # next_hidden = self.sample_from_probabilities(hx_)
+                # removed the sampling for now (unlikely to replace continuous hidden state during inference)
+                next_hidden = hx_
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
+
             outputs.append(next_hidden)
 
         return torch.stack(outputs, dim=1), hx
