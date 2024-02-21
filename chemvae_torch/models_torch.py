@@ -417,7 +417,8 @@ class CustomGRU(torch.nn.Module):
         super(CustomGRU, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.cell = CustomGRUCell(input_size, hidden_size)
+        # self.cell = CustomGRUCell(input_size, hidden_size)
+        self.cell = GRUCell(input_size, hidden_size)
         # for _ in range(1, num_layers):
         #     self.cells.append(CustomGRUCell(hidden_size, hidden_size))
 
