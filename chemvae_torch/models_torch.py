@@ -213,7 +213,7 @@ class DecoderModel(nn.Module):
                     "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
                 )
 
-        self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
+        self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1, device=params["device"])
         # self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
 
     def forward(self, z_in, targets=None):
@@ -358,7 +358,7 @@ class CustomGRUCell(GRUCell):
     :param bias: whether to use bias
     """
 
-    def __init__(self, input_size, hidden_size, bias=True):
+    def __init__(self, input_size, hidden_size, bias=True, device=None):
         """
         Init Custom GRU cell that uses softmax instead of sigmoid for the new gate.
 
@@ -416,7 +416,7 @@ class CustomGRU(torch.nn.Module):
     :param num_layers: number of layers
     """
 
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, device):
         """
         Init Custom GRU layer that uses softmax instead of sigmoid for the new gate.
 
@@ -427,7 +427,7 @@ class CustomGRU(torch.nn.Module):
         super(CustomGRU, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.cell = CustomGRUCell(input_size, hidden_size)
+        self.cell = CustomGRUCell(input_size, hidden_size, device=device)
         # self.cell = GRUCell(input_size, hidden_size)
         # for _ in range(1, num_layers):
         #     self.cells.append(CustomGRUCell(hidden_size, hidden_size))
