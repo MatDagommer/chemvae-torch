@@ -6,6 +6,51 @@ import torch.nn.functional as F
 from torch.nn.modules.rnn import GRUCell
 
 
+# Custom BatchNorm1d layer that has eps=1e-3 and does not use Bessel's correction (Keras' defaults)
+class CustomBatchNorm1d(nn.Module):
+    """Custom BatchNorm1d layer that has eps=1e-3 and does not use Bessel's correction (Keras' defaults)."""
+
+    def __init__(self, num_features, eps=1e-3, momentum=0.1):
+        """
+        Init Custom BatchNorm1d layer that has eps=1e-3 and does not use Bessel's correction (Keras' defaults).
+
+        :param num_features: number of features
+        :param eps: epsilon
+        :param momentum: momentum
+        """
+        super(CustomBatchNorm1d, self).__init__()
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.weight = nn.Parameter(torch.Tensor(1, num_features).fill_(0.1))
+        self.bias = nn.Parameter(torch.Tensor(1, num_features).fill_(0))
+        self.register_buffer("running_mean", torch.zeros(1, num_features))
+        self.register_buffer("running_var", torch.ones(1, num_features))
+
+    def forward(self, input):
+        """
+        Forward pass.
+
+        :param input: input tensor
+        :return: output tensor
+        """
+        # Expand dimensions of running mean and var to match input tensor
+        if len(input.size()) > 2:
+            running_mean = self.running_mean.unsqueeze(-1)
+            running_var = self.running_var.unsqueeze(-1)
+            weight = self.weight.unsqueeze(-1)
+            bias = self.bias.unsqueeze(-1)
+        else:
+            running_mean = self.running_mean
+            running_var = self.running_var
+            weight = self.weight
+            bias = self.bias
+
+        X_hat = (input - running_mean) / torch.sqrt(running_var + self.eps)
+        y = weight * X_hat + bias
+        return y
+
+
 class EncoderModel(nn.Module):
     """
     Encoder model.
@@ -32,7 +77,8 @@ class EncoderModel(nn.Module):
         conv_layer = nn.Conv1d(in_channels, out_channels, kernel_size)
         self.conv_layers.append(conv_layer)
         if params["batchnorm_conv"]:
-            norm_layer = nn.BatchNorm1d(out_channels)
+            # norm_layer = nn.BatchNorm1d(out_channels)
+            norm_layer = CustomBatchNorm1d(out_channels)
             self.conv_norm_layers.append(norm_layer)
 
         in_channels = out_channels
@@ -44,7 +90,8 @@ class EncoderModel(nn.Module):
             self.conv_layers.append(conv_layer)
 
             if params["batchnorm_conv"]:
-                norm_layer = nn.BatchNorm1d(out_channels)
+                # norm_layer = nn.BatchNorm1d(out_channels)
+                norm_layer = CustomBatchNorm1d(out_channels)
                 self.conv_norm_layers.append(norm_layer)
 
             in_channels = out_channels
@@ -57,6 +104,7 @@ class EncoderModel(nn.Module):
             self.dropout_layers = nn.ModuleList()
             self.middle_norm_layers = nn.ModuleList()
 
+            # TODO: find a way to calculate in_features automatically
             in_features = out_channels * 94
 
             for i in range(1, params["middle_layer"] + 1):
@@ -69,11 +117,13 @@ class EncoderModel(nn.Module):
                     self.dropout_layers.append(dropout_layer)
 
                 if params["batchnorm_mid"]:
-                    norm_layer = nn.BatchNorm1d(out_features)
+                    # norm_layer = nn.BatchNorm1d(out_features)
+                    norm_layer = CustomBatchNorm1d(out_features)
                     self.middle_norm_layers.append(norm_layer)
 
                 in_features = out_features
 
+        # output has dim = hidden_dim = 100 (hyperparameters.py)
         self.z_mean = nn.Linear(in_features, params["hidden_dim"])
 
     def forward(self, x):
@@ -83,19 +133,24 @@ class EncoderModel(nn.Module):
         :param x: input tensor
         :return: mean and last encoding layer for std dev sampling
         """
+        # Transpose input
         x = x.transpose(2, 1)
 
+        # Convolution layers
         for i in range(len(self.conv_layers)):
             x = self.conv_layers[i](x)
-            x = torch.tanh(x)
+            x = torch.tanh(x)  # activation
             if self.params["batchnorm_conv"]:
                 x = self.conv_norm_layers[i](x)
 
         x = x.transpose(2, 1)
         x = self.flatten(x)
+        # print("x.size(): ", x.size())
 
+        # Middle layers
         if self.params["middle_layer"] > 0:
             for i in range(len(self.middle_layers)):
+                # print("TEST: ", i)
                 x = self.middle_layers[i](x)
                 x = torch.tanh(x)
                 if self.params["dropout_rate_mid"] > 0:
@@ -103,8 +158,10 @@ class EncoderModel(nn.Module):
                 if self.params["batchnorm_mid"]:
                     x = self.middle_norm_layers[i](x)
 
+        # output has dim = hidden_dim = 100 (hyperparameters.py)
         z_mean = self.z_mean(x)
 
+        # return both mean and encoder output
         return z_mean, x
 
 
@@ -127,7 +184,7 @@ class DecoderModel(nn.Module):
         self.z = nn.Sequential(
             nn.Linear(params["hidden_dim"], int(params["hidden_dim"])),
             nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-            nn.BatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
+            CustomBatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
         )
 
         for i in range(1, params["middle_layer"]):
@@ -139,7 +196,7 @@ class DecoderModel(nn.Module):
                         int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)),
                     ),
                     nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-                    nn.BatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
+                    CustomBatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
                     if params["batchnorm_mid"]
                     else nn.Identity(),
                 ),
@@ -163,6 +220,7 @@ class DecoderModel(nn.Module):
         """
         z = self.z(z_in)
         z_reshaped = z.unsqueeze(1)
+        # Repeat z along the second dimension to get shape (batch_size, MAX_LEN, hidden_dim)
         z_reps = z_reshaped.repeat(1, self.params["MAX_LEN"], 1)
 
         if hasattr(self, "x_dec"):
@@ -174,11 +232,13 @@ class DecoderModel(nn.Module):
             raise KeyError("The decoder is in training mode, but no targets were provided.")
 
         if self.training:
+            # teacher forcing with the targets
             x_out, _ = self.x_out.forward(x_dec, targets=targets)
         else:
             x_out, _ = self.x_out.forward(x_dec)
 
         return x_out
+
 
 class PropertyPredictorModel(nn.Module):
     """
@@ -218,8 +278,8 @@ class PropertyPredictorModel(nn.Module):
                     self.hidden_layers.append(dropout_layer)
 
                 if params["prop_batchnorm"]:
-                    norm_layer = nn.BatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
-                    # norm_layer = CustomBatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
+                    # norm_layer = nn.BatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
+                    norm_layer = CustomBatchNorm1d(int(params["prop_hidden_dim"] * params["prop_growth_factor"] ** p_i))
                     self.hidden_layers.append(norm_layer)
 
         # Regression tasks
