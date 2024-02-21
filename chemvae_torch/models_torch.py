@@ -367,8 +367,10 @@ class CustomGRUCell(GRUCell):
         :param bias: whether to use bias
         """
         super(CustomGRUCell, self).__init__(input_size, hidden_size, bias)
+        # weights for teacher forcing
+        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True)
     
-    def forward(self, input, hx=None):
+    def forward(self, input, hx=None, prev_target=None):
         """
         Forward pass.
 
@@ -379,6 +381,9 @@ class CustomGRUCell(GRUCell):
         # self.check_forward_input(input)
         if hx is None:
             hx = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
+
+        if prev_target is None:
+            prev_target = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
         x_gates = F.linear(input, self.weight_ih) # self.weight_ih = concat(W_r, W_z, W_h)
         h_gates = F.linear(hx, self.weight_hh) # self.weight_ih = concat(U_r, U_z, U_h)
@@ -393,6 +398,7 @@ class CustomGRUCell(GRUCell):
             x_h
             + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
             # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
+            + F.linear(reset_gate * prev_target, self.weight_tf)
             + self.bias_ih[2*self.hidden_size:],
             dim=1
         )
@@ -481,7 +487,7 @@ class CustomGRU(torch.nn.Module):
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], hx=targets_and_zeros[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_target=targets_and_zeros[:, i])
                 # next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
             else:
                 # predict next hidden state
@@ -489,10 +495,10 @@ class CustomGRU(torch.nn.Module):
                 # adding a sampling step to retrieve a one-hot
                 # next_hidden = F.softmax(next_hidden, dim=1)
                 # next_hidden = torch.max(next_hidden, dim=1)
-                row_sums = next_hidden.sum(dim=0)
+                # row_sums = next_hidden.sum(dim=0)
                 # Divide each row by its sum using broadcasting
-                result = next_hidden / row_sums[:, None]
-                next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
+                # result = next_hidden / row_sums[:, None]
+                # next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
 
             outputs.append(next_hidden)
