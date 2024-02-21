@@ -477,7 +477,6 @@ class CustomGRU(torch.nn.Module):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
                 next_hidden = self.cell(inputs[:, i], hx=targets_and_zeros[:, i])
-                print(next_hidden.size())
                 next_hidden = F.softmax(next_hidden, dim=1)
             else:
                 # predict next hidden state
