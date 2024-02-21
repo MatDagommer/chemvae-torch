@@ -472,7 +472,7 @@ class CustomGRU(torch.nn.Module):
         if targets is not None:
             targets_and_zeros = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
             targets_and_zeros[:, 1:, :] = targets
-            print(targets_and_zeros[:, 0, :])
+            # print(targets_and_zeros[:, 0, :])
         
         for i in range(inputs.size(1)):
             if self.training:
@@ -495,7 +495,7 @@ class AE_PP_Model(nn.Module):
     """
     Variational Autoencoder with property prediction (QED, SAS, logP).
     """
-    def __init__(self, encoder, decoder, property_predictor, params):
+    def __init__(self, encoder, decoder, property_predictor, params, device):
         
         super(AE_PP_Model, self).__init__()
         self.encoder = encoder
@@ -506,13 +506,15 @@ class AE_PP_Model(nn.Module):
         self.hidden_dim = params["hidden_dim"]
         self.use_mu = params["use_mu"]
 
+        self.device = device
+        
         # similar to the layer found in models.variational_layers (original code)
-        self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
         # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
 
     def reparameterize(self, mu, logvar, kl_loss_weight):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
+        std = torch.exp(0.5 * logvar).to(self.device)
+        eps = torch.randn_like(std).to(self.device)
         z = mu + eps * std * kl_loss_weight
         return z
 
@@ -530,7 +532,7 @@ class AE_PP_Model(nn.Module):
             kl_loss_weight = 0
 
         # Reparameterization trick to sample from the latent space
-        z = self.reparameterize(mu, logvar, kl_loss_weight)
+        z = self.reparameterize(mu, logvar, kl_loss_weight, self.device)
 
         # # batchnormalization
         # z = self.batch_norm_vae(z)
