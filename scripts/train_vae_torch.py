@@ -91,6 +91,9 @@ def train(params):
         for param in vae.encoder.parameters():
             param.requires_grad = False
         
+        for param in vae.encoder.z_logvar.parameters():
+            param.requires_grad = True
+        
         # Freeze property predictor
         for param in vae.property_predictor.parameters():
             param.requires_grad = False
