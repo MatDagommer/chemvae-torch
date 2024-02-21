@@ -209,8 +209,8 @@ class DecoderModel(nn.Module):
                     "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
                 )
 
-        # self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
-        self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
+        self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
+        # self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
 
     def forward(self, z_in, targets=None):
         """
@@ -234,8 +234,8 @@ class DecoderModel(nn.Module):
 
         if self.training:
             # teacher forcing with the targets
-            # x_out, _ = self.x_out.forward(x_dec, targets=targets)
-            x_out, _ = self.x_out.forward(x_dec)
+            x_out, _ = self.x_out.forward(x_dec, targets=targets)
+            # x_out, _ = self.x_out.forward(x_dec)
         else:
             x_out, _ = self.x_out.forward(x_dec)
 
@@ -461,8 +461,8 @@ class CustomGRU(torch.nn.Module):
         """
         if hx is None:
             # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            # hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
-            hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
+            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
+            # hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
         
