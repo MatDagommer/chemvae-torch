@@ -489,7 +489,7 @@ class CustomGRU(torch.nn.Module):
                 # adding a sampling step to retrieve a one-hot
                 # next_hidden = F.softmax(next_hidden, dim=1)
                 # next_hidden = torch.max(next_hidden, dim=1)
-                row_sums = next_hidden.sum(dim=1)
+                row_sums = next_hidden.sum(dim=0)
                 # Divide each row by its sum using broadcasting
                 result = next_hidden / row_sums[:, None]
                 next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
