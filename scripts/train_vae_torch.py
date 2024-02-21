@@ -143,10 +143,13 @@ def train(params):
                 weight_orig=params["kl_loss_weight"]
             )
 
+            print("requires grad?: ", vae.logvar_layer.requires_grad_)
+            print("logvar_layer weight: ", vae.logvar_layer.weight[0])
+            print("logvar_layer weight grad: ", vae.logvar_layer.weight.grad[0])
             # Forward pass
             reconstruction, prediction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
-            print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
-            print("train (y): ", hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
+            # print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
+            # print("train (y): ", hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
             loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
                 reconstruction=reconstruction, 
                 prediction=prediction, 
