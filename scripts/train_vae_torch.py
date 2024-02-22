@@ -298,7 +298,8 @@ def train_vae_only(params):
     for epoch in range(params['prev_epochs'], params['epochs']):
         
         for batch_idx, (x,) in enumerate(train_loader):
-
+            print(type(x))
+            print("SHAPE: ", x[0].shape)
             vae.train()
 
             # update KL loss weight based on schedule
