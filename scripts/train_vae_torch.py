@@ -74,7 +74,7 @@ def train(params):
     
     params["model_loss_weights"] = model_loss_weights
     
-    vae = AE_PP_Model(encoder, decoder, property_predictor, params, device)
+    vae = AE_PP_Model(encoder, decoder, params, device, property_predictor=property_predictor)
 
     # print(vae)
 

@@ -466,14 +466,14 @@ class CustomGRU(torch.nn.Module):
         """
         if hx is None:
             # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
+            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device).to(torch.float32)
             # hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
 
         # Creating a tensor that contains the previous target/sampled output + zeros at the beginning 
         # (first iteration has no teacher forcing)
-        prev_sampled_output = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
+        prev_sampled_output = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device).to(torch.float32)
         if targets is not None:
             prev_sampled_output[:, 1:, :] = targets
         
