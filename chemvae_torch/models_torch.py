@@ -370,7 +370,7 @@ class CustomGRUCell(GRUCell):
         # weights for teacher forcing
         self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True).to(device)
     
-    def forward(self, input, hx=None, prev_target=None):
+    def forward(self, input, hx=None, prev_sampled_output=None):
         """
         Forward pass.
 
@@ -379,11 +379,11 @@ class CustomGRUCell(GRUCell):
         :return: output tensor
         """
         # self.check_forward_input(input)
-        if hx is None:
-            hx = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
+        # if hx is None:
+        #     hx = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        if prev_target is None:
-            prev_target = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
+        # if prev_sampled_output is None:
+        #     prev_sampled_output = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
         W_r = self.weight_ih[:self.hidden_size]
         W_z = self.weight_ih[self.hidden_size:2*self.hidden_size]
@@ -403,7 +403,7 @@ class CustomGRUCell(GRUCell):
         new_gate = F.tanh(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
-            + F.linear(reset_gate * prev_target, self.weight_tf)
+            + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
             + bias_h
         )
 
@@ -483,31 +483,23 @@ class CustomGRU(torch.nn.Module):
             # hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
-        # print(inputs.size())
-        # Creating a tensor that contains the targets + zeros at the beginning 
+
+        # Creating a tensor that contains the previous target/sampled output + zeros at the beginning 
         # (first iteration has no teacher forcing)
+        prev_sampled_output = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
         if targets is not None:
-            targets_and_zeros = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            targets_and_zeros[:, 1:, :] = targets
-            # print(targets_and_zeros[:, 0, :])
+            prev_sampled_output[:, 1:, :] = targets
         
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_target=targets_and_zeros[:, i]).to(inputs.device)
-                # next_hidden = self.cell(inputs[:, i], hx=hx[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
                 # predict next hidden state
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i]).to(inputs.device)
-                # adding a sampling step to retrieve a one-hot
-                # next_hidden = F.softmax(next_hidden, dim=1)
-                # next_hidden = torch.max(next_hidden, dim=1)
-                # row_sums = next_hidden.sum(dim=0)
-                # Divide each row by its sum using broadcasting
-                # result = next_hidden / row_sums[:, None]
-                # next_hidden = self.sample_from_probabilities(next_hidden, inputs.device)
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
+                prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
+            
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
-
             outputs.append(next_hidden)
 
         return torch.stack(outputs, dim=1).to(inputs.device), hx
