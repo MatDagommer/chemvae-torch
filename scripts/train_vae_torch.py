@@ -284,10 +284,10 @@ def train_vae_only(params):
     test_dataset = torch.utils.data.TensorDataset(X_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=params['batch_size'], shuffle=False)
 
-    test_batch = next(iter(test_loader))
+    (test_batch,) = next(iter(test_loader))
     test_sample = test_batch[0:1]
 
-    train_batch = next(iter(train_loader))
+    (train_batch,) = next(iter(train_loader))
     train_sample = train_batch[0:1]
 
     # retrieving character encoding
@@ -299,7 +299,6 @@ def train_vae_only(params):
         
         for batch_idx, (x,) in enumerate(train_loader):
 
-            print("1: ", type(x))
             vae.train()
 
             # update KL loss weight based on schedule
@@ -309,8 +308,6 @@ def train_vae_only(params):
                 start=params["vae_annealer_start"],
                 weight_orig=params["kl_loss_weight"]
             )
-
-            print("2: ", type(x))
 
             reconstruction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
             print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])

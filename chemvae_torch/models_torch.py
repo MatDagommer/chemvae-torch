@@ -135,9 +135,6 @@ class EncoderModel(nn.Module):
         :param x: input tensor
         :return: mean and last encoding layer for std dev sampling
         """
-
-        print("4: ", type(x))
-
         # Transpose input
         x = x.transpose(2, 1)
 
@@ -542,8 +539,6 @@ class AE_PP_Model(nn.Module):
     def forward(self, x, kl_loss_weight=None):
         # Encode input - returns mean and encoder output
         # mu, encoder_output = self.encoder(x)
-
-        print("3: ", type(x))
 
         mu, logvar = self.encoder(x)
         
