@@ -385,25 +385,33 @@ class CustomGRUCell(GRUCell):
         if prev_target is None:
             prev_target = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        x_gates = F.linear(input, self.weight_ih) # self.weight_ih = concat(W_r, W_z, W_h)
-        h_gates = F.linear(hx, self.weight_hh) # self.weight_ih = concat(U_r, U_z, U_h)
+        W_r = self.weight_ih[:self.hidden_size]
+        W_z = self.weight_ih[self.hidden_size:2*self.hidden_size]
+        W_h = self.weight_ih[2*self.hidden_size:]
 
-        x_r, x_z, x_h = x_gates.chunk(3, 1) # returns W_r @ x_t, W_z @ x_t, W_h @ x_t 
-        h_r, h_z, h_h = h_gates.chunk(3, 1) # returns U_r @ h_tm1, U_z @ h_tm1, U_h @ h_tm1 
+        U_r = self.weight_hh[:self.hidden_size]
+        U_z = self.weight_hh[self.hidden_size:2*self.hidden_size]
+        U_h = self.weight_hh[2*self.hidden_size:]
 
-        reset_gate = torch.sigmoid(x_r + h_r + self.bias_ih[:self.hidden_size])
-        update_gate = torch.sigmoid(x_z + h_z + self.bias_ih[self.hidden_size:2*self.hidden_size])
+        bias_r = self.bias_ih[:self.hidden_size]
+        bias_z = self.bias_ih[self.hidden_size:2*self.hidden_size]
+        bias_h = self.bias_ih[2*self.hidden_size:]
 
-        new_gate = F.softmax(
-            x_h
-            + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
-            # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
+        reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
+        update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
+
+        new_gate = F.tanh(
+            F.linear(input, W_h)
+            + F.linear(reset_gate * hx, U_h)
             + F.linear(reset_gate * prev_target, self.weight_tf)
-            + self.bias_ih[2*self.hidden_size:],
+            + bias_h,
             dim=1
         )
 
         hy = (1. - update_gate) * new_gate + update_gate * hx
+
+        # adding a softmax operation to retrieve a probability distribution
+        hy = F.softmax(hx, dim=1)
 
         return hy
 
