@@ -172,6 +172,8 @@ def train(params):
             expected = hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0]
             computed = hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0]
 
+            max_length = max(len(expected), len(computed))
+
             print(f"Target: {expected:<{max_length}}")
             print(f"Output: {computed:<{max_length}}")
 
@@ -179,7 +181,7 @@ def train(params):
         print(f"End of epoch {epoch}")
 
         vae.eval()
-        
+
         recon_test, _, _, _ = vae.forward(test_sample)
         recon_train, _, _, _ = vae.forward(train_sample)
 
@@ -189,9 +191,7 @@ def train(params):
         expected_train = hot_to_smiles(train_sample.detach().cpu().numpy(), indices_char)[0]
         computed_train = hot_to_smiles(recon_train.detach().cpu().numpy(), indices_char)[0]
 
-        max_length = max(len(expected), len(computed))
 
-        print
         print("TRAIN: ")
         # Print train strings (target and output)
         print(f"Target: {expected_train:<{max_length}}")
