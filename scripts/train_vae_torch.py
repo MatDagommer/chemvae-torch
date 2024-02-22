@@ -217,7 +217,7 @@ def train_vae_only(params):
     device = params["device"]
 
     # Load data
-    X_train, X_test, _, _ = vectorize_data(params)
+    X_train, X_test = vectorize_data(params)
 
 
     # Convert data to torch tensors
