@@ -404,8 +404,7 @@ class CustomGRUCell(GRUCell):
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
             + F.linear(reset_gate * prev_target, self.weight_tf)
-            + bias_h,
-            dim=1
+            + bias_h
         )
 
         hy = (1. - update_gate) * new_gate + update_gate * hx
