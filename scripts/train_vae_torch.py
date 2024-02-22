@@ -148,8 +148,7 @@ def train(params):
             # print("logvar_layer weight grad: ", vae.encoder.z_logvar.weight[0].grad)
             # Forward pass
             reconstruction, mu, logvar, prediction = vae.forward(x, kl_loss_weight=kl_loss_weight)
-            print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
-            print("train (y): ", hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
+
             loss, recon_loss, kl_loss, pred_loss = vae.loss_function(
                 reconstruction=reconstruction,
                 mu=mu, 
@@ -164,35 +163,44 @@ def train(params):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
-            # eval
-            vae.eval()
-            recon_test, _, _, _ = vae.forward(test_sample)
-            recon_train, _, _, _ = vae.forward(train_sample)
-
-            expected = hot_to_smiles(test_sample.detach().cpu().numpy(), indices_char)[0]
-            computed = hot_to_smiles(recon_test.detach().cpu().numpy(), indices_char)[0]
-            
-            expected_train = hot_to_smiles(train_sample.detach().cpu().numpy(), indices_char)[0]
-            computed_train = hot_to_smiles(recon_train.detach().cpu().numpy(), indices_char)[0]
-
-            max_length = max(len(expected), len(computed))
-
-            # Format and print the strings with alignment
-            print("Epoch {} Batch {}.".format(epoch, batch_idx))
 
             # Print Losses
+            # Format and print the strings with alignment
+            print("Epoch {} Batch {}.".format(epoch, batch_idx))
             print(f"Losses - REC: {recon_loss.item()} KL: {kl_loss.item()} PRED: {pred_loss.item()} TOT: {loss.item()}")
             
-            print("TRAIN: ")
-            # Print train strings (target and output)
-            print(f"Target: {expected_train:<{max_length}}")
-            print(f"Output: {computed_train:<{max_length}}")
+            expected = hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0]
+            computed = hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0]
 
-            print("TEST: ")
-            # Print test strings (target and output)
             print(f"Target: {expected:<{max_length}}")
             print(f"Output: {computed:<{max_length}}")
+
+        # end of epoch eval
+        print(f"End of epoch {epoch}")
+
+        vae.eval()
+        
+        recon_test, _, _, _ = vae.forward(test_sample)
+        recon_train, _, _, _ = vae.forward(train_sample)
+
+        expected_test = hot_to_smiles(test_sample.detach().cpu().numpy(), indices_char)[0]
+        computed_test = hot_to_smiles(recon_test.detach().cpu().numpy(), indices_char)[0]
+        
+        expected_train = hot_to_smiles(train_sample.detach().cpu().numpy(), indices_char)[0]
+        computed_train = hot_to_smiles(recon_train.detach().cpu().numpy(), indices_char)[0]
+
+        max_length = max(len(expected), len(computed))
+
+        print
+        print("TRAIN: ")
+        # Print train strings (target and output)
+        print(f"Target: {expected_train:<{max_length}}")
+        print(f"Output: {computed_train:<{max_length}}")
+
+        print("TEST: ")
+        # Print test strings (target and output)
+        print(f"Target: {expected_test:<{max_length}}")
+        print(f"Output: {computed_test:<{max_length}}")
 
         # Print some metrics or do logging
         # if epoch % params['log_interval'] == 0:
