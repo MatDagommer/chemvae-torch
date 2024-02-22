@@ -158,8 +158,8 @@ def train(params):
                 mu=mu, 
                 logvar=logvar, 
                 x=x, 
-                y=y,
                 kl_loss_weight=kl_loss_weight,
+                y=y,
                 prediction=prediction,
             )
 
@@ -297,7 +297,7 @@ def train_vae_only(params):
     # Train the model
     for epoch in range(params['prev_epochs'], params['epochs']):
         
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, x in enumerate(train_loader):
 
             vae.train()
 
@@ -316,8 +316,7 @@ def train_vae_only(params):
                 reconstruction=reconstruction,
                 mu=mu, 
                 logvar=logvar, 
-                x=x, 
-                y=y,
+                x=x,
                 kl_loss_weight=kl_loss_weight,
             )
 
