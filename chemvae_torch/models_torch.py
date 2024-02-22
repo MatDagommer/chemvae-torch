@@ -553,7 +553,7 @@ class AE_PP_Model(nn.Module):
             reconstruction = self.decoder(z, x)
 
         if self.do_prop_pred:
-            return reconstruction, prediction, mu, logvar
+            return reconstruction, mu, logvar, prediction
         else:
             return reconstruction, mu, logvar
 
