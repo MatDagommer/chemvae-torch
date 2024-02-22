@@ -385,17 +385,20 @@ class CustomGRUCell(GRUCell):
         # if prev_sampled_output is None:
         #     prev_sampled_output = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        W_r = self.weight_ih[:self.hidden_size]
-        W_z = self.weight_ih[self.hidden_size:2*self.hidden_size]
-        W_h = self.weight_ih[2*self.hidden_size:]
+        # W_r = self.weight_ih[:self.hidden_size]
+        # W_z = self.weight_ih[self.hidden_size:2*self.hidden_size]
+        # W_h = self.weight_ih[2*self.hidden_size:]
+        W_r, W_z, W_h = torch.split(self.weight_ih, self.hidden_size, dim=0)
+        U_r, U_z, U_h = torch.split(self.weight_hh, self.hidden_size, dim=0)
+        bias_r, bias_z, bias_h = torch.split(self.bias_ih, self.hidden_size, dim=0)
 
-        U_r = self.weight_hh[:self.hidden_size]
-        U_z = self.weight_hh[self.hidden_size:2*self.hidden_size]
-        U_h = self.weight_hh[2*self.hidden_size:]
+        # U_r = self.weight_hh[:self.hidden_size]
+        # U_z = self.weight_hh[self.hidden_size:2*self.hidden_size]
+        # U_h = self.weight_hh[2*self.hidden_size:]
 
-        bias_r = self.bias_ih[:self.hidden_size]
-        bias_z = self.bias_ih[self.hidden_size:2*self.hidden_size]
-        bias_h = self.bias_ih[2*self.hidden_size:]
+        # bias_r = self.bias_ih[:self.hidden_size]
+        # bias_z = self.bias_ih[self.hidden_size:2*self.hidden_size]
+        # bias_h = self.bias_ih[2*self.hidden_size:]
 
         reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
         update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
