@@ -100,9 +100,6 @@ def train(params):
     
         # for param in vae.logvar_layer.parameters():
         #     param.requires_grad = True
-    else:
-        for param in vae.parameters():
-            param.requires_grad = True
 
     # Define optimizer
     if params['optim'] == 'adam':
@@ -261,10 +258,6 @@ def train_vae_only(params):
             param.requires_grad = False
         
         for param in vae.encoder.z_logvar.parameters():
-            param.requires_grad = True
-        
-    else:
-        for param in vae.parameters():
             param.requires_grad = True
 
     # Define optimizer

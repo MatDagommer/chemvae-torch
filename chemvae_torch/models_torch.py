@@ -368,8 +368,7 @@ class CustomGRUCell(GRUCell):
         """
         super(CustomGRUCell, self).__init__(input_size, hidden_size, bias)
         # weights for teacher forcing
-        self.device = device
-        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True).to(self.device)
+        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True).to(device)
     
     def forward(self, input, hx=None, prev_target=None):
         """
@@ -386,17 +385,17 @@ class CustomGRUCell(GRUCell):
         if prev_target is None:
             prev_target = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        W_r = self.weight_ih[:self.hidden_size].to(self.device)
-        W_z = self.weight_ih[self.hidden_size:2*self.hidden_size].to(self.device)
-        W_h = self.weight_ih[2*self.hidden_size:].to(self.device)
+        W_r = self.weight_ih[:self.hidden_size]
+        W_z = self.weight_ih[self.hidden_size:2*self.hidden_size]
+        W_h = self.weight_ih[2*self.hidden_size:]
 
-        U_r = self.weight_hh[:self.hidden_size].to(self.device)
-        U_z = self.weight_hh[self.hidden_size:2*self.hidden_size].to(self.device)
-        U_h = self.weight_hh[2*self.hidden_size:].to(self.device)
+        U_r = self.weight_hh[:self.hidden_size]
+        U_z = self.weight_hh[self.hidden_size:2*self.hidden_size]
+        U_h = self.weight_hh[2*self.hidden_size:]
 
-        bias_r = self.bias_ih[:self.hidden_size].to(self.device)
-        bias_z = self.bias_ih[self.hidden_size:2*self.hidden_size].to(self.device)
-        bias_h = self.bias_ih[2*self.hidden_size:].to(self.device)
+        bias_r = self.bias_ih[:self.hidden_size]
+        bias_z = self.bias_ih[self.hidden_size:2*self.hidden_size]
+        bias_h = self.bias_ih[2*self.hidden_size:]
 
         reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
         update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
