@@ -297,7 +297,7 @@ def train_vae_only(params):
     # Train the model
     for epoch in range(params['prev_epochs'], params['epochs']):
         
-        for batch_idx, x in enumerate(train_loader):
+        for batch_idx, (x) in enumerate(train_loader):
 
             vae.train()
 
