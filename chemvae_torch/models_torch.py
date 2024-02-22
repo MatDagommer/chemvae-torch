@@ -510,16 +510,19 @@ class AE_PP_Model(nn.Module):
     """
     Variational Autoencoder with property prediction (QED, SAS, logP).
     """
-    def __init__(self, encoder, decoder, property_predictor, params, device):
+    def __init__(self, encoder, decoder, params, device, property_predictor=None):
         
         super(AE_PP_Model, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.property_predictor = property_predictor
 
         self.loss_weights = params["model_loss_weights"]
         self.hidden_dim = params["hidden_dim"]
         self.use_mu = params["use_mu"]
+        self.do_prop_pred = params["do_prop_pred"]
+
+        if self.do_prop_pred:
+            self.property_predictor = property_predictor
 
         self.device = device
 
@@ -539,7 +542,8 @@ class AE_PP_Model(nn.Module):
         mu, logvar = self.encoder(x)
         
         # Retrieving property prediction
-        prediction = self.property_predictor(mu)
+        if self.do_prop_pred:
+            prediction = self.property_predictor(mu)
 
         # Compute log variance from the encoder's output
         # logvar = self.logvar_layer(encoder_output)
@@ -561,9 +565,12 @@ class AE_PP_Model(nn.Module):
             # with sampling (classic VAE training)
             reconstruction = self.decoder(z, x)
 
-        return reconstruction, prediction, mu, logvar
+        if self.do_prop_pred:
+            return reconstruction, prediction, mu, logvar
+        else:
+            return reconstruction, mu, logvar
 
-    def loss_function(self, reconstruction, prediction, mu, logvar, x, y, kl_loss_weight):
+    def loss_function(self, reconstruction, mu, logvar, x, y, kl_loss_weight, prediction=None):
 
         # Compute reconstruction loss
         reconstruction_criterion = nn.CrossEntropyLoss()
@@ -577,12 +584,21 @@ class AE_PP_Model(nn.Module):
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
         # Compute prediction loss
-        prediction_criterion = nn.MSELoss()
-        prediction_loss = prediction_criterion(prediction, y)
+        if prediction is not None:
+            prediction_criterion = nn.MSELoss()
+            prediction_loss = prediction_criterion(prediction, y)
 
-        # Total loss
-        total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
-                    + kl_loss * kl_loss_weight * self.loss_weights["ae_loss"] \
-                    + prediction_loss * self.loss_weights["prediction_loss"]
+            # Total loss
+            total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
+                        + kl_loss * kl_loss_weight * self.loss_weights["ae_loss"] \
+                        + prediction_loss * self.loss_weights["prediction_loss"]
+            
+            return total_loss, reconstruction_loss, kl_loss, prediction_loss
+        
+        else:
+            # Total loss
+            total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
+                        + kl_loss * kl_loss_weight
 
-        return total_loss, reconstruction_loss, kl_loss, prediction_loss
+            return total_loss, reconstruction_loss, kl_loss
+        
