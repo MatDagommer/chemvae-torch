@@ -294,6 +294,8 @@ def train_vae_only(params):
 
             vae.train()
 
+            print("Test weights GRU: \n", vae.decoder.x_out.cell.weight_ih[0])
+
             # update KL loss weight based on schedule
             kl_loss_weight = schedule(
                 epoch,
