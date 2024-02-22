@@ -298,8 +298,8 @@ def train_vae_only(params):
     for epoch in range(params['prev_epochs'], params['epochs']):
         
         for batch_idx, (x,) in enumerate(train_loader):
-            print(type(x))
-            print("SHAPE: ", x[0].shape)
+
+            print("1: ", type(x))
             vae.train()
 
             # update KL loss weight based on schedule
@@ -309,6 +309,8 @@ def train_vae_only(params):
                 start=params["vae_annealer_start"],
                 weight_orig=params["kl_loss_weight"]
             )
+
+            print("2: ", type(x))
 
             reconstruction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
             print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
