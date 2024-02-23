@@ -41,5 +41,6 @@
   "log_interval": 1,
   "use_mu": false,
   "device": "cuda:0",
-  "train_all": false
+  "train_all": false,
+  "kl_loss_weight": 0.5
 }
