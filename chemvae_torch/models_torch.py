@@ -492,7 +492,9 @@ class CustomGRU(torch.nn.Module):
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
                 # predict next hidden state
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
+                # next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
+                #                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
+                next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
                 prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
             
