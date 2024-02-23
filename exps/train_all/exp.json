@@ -39,7 +39,7 @@
     "prop_growth_factor": 0.99028340731314179,
     "momentum": 0.99027641036225744,
     "log_interval": 1,
-    "use_mu": false,
+    "use_mu": true,
     "device": "cuda:0",
     "train_all": true
   }
