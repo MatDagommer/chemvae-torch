@@ -390,7 +390,7 @@ class CustomGRUCell(GRUCell):
         new_gate = F.tanh(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
-            + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+            # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
             + bias_h
         )
 
@@ -484,7 +484,8 @@ class CustomGRU(torch.nn.Module):
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
                 # predict next hidden state
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
+                                        prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
                 prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
             
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
