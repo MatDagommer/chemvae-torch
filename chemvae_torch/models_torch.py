@@ -126,6 +126,9 @@ class EncoderModel(nn.Module):
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         self.z_mean = nn.Linear(in_features, params["hidden_dim"])
         self.z_logvar = nn.Linear(in_features, params["hidden_dim"])
+
+        self.z_logvar.weight.data.fill_(0.0)
+        self.z_logvar.bias.data.fill_(0.0)
         
 
     def forward(self, x):
@@ -397,7 +400,7 @@ class CustomGRUCell(GRUCell):
         new_gate = F.softmax(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
-            + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+            # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
             + bias_h,
             dim=1
         )
