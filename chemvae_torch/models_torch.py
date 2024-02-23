@@ -126,9 +126,6 @@ class EncoderModel(nn.Module):
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         self.z_mean = nn.Linear(in_features, params["hidden_dim"])
         self.z_logvar = nn.Linear(in_features, params["hidden_dim"])
-
-        self.z_logvar.weight.data.fill_(0.0)
-        self.z_logvar.bias.data.fill_(0.0)
         
 
     def forward(self, x):
@@ -534,7 +531,7 @@ class AE_PP_Model(nn.Module):
     def reparameterize(self, mu, logvar, kl_loss_weight):
         std = torch.exp(0.5 * logvar).to(self.device)
         eps = torch.randn_like(std).to(self.device)
-        z = mu + eps * std #  * kl_loss_weight
+        z = mu + eps * std * kl_loss_weight
         return z
 
     def forward(self, x, kl_loss_weight=None):
