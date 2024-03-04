@@ -405,7 +405,7 @@ class CustomGRUCell(GRUCell):
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
         # adding a softmax operation to retrieve a probability distribution
-        hy = F.softmax(hy, dim=1)
+        # hy = F.softmax(hy, dim=1)
 
         return hy
 
