@@ -387,25 +387,25 @@ class CustomGRUCell(GRUCell):
         reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
         update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
 
-        # new_gate = torch.tanh(
-        #     F.linear(input, W_h)
-        #     + F.linear(reset_gate * hx, U_h)
-        #     # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
-        #     + bias_h
-        # )
-
-        new_gate = F.softmax(
+        new_gate = torch.tanh(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
-            # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
-            + bias_h,
-            dim=1
+            + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+            + bias_h
         )
+
+        # new_gate = F.softmax(
+        #     F.linear(input, W_h)
+        #     + F.linear(reset_gate * hx, U_h)
+        #     + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+        #     + bias_h,
+        #     dim=1
+        # )
 
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
         # adding a softmax operation to retrieve a probability distribution
-        # hy = F.softmax(hy, dim=1)
+        hy = F.softmax(hy, dim=1)
 
         return hy
 
@@ -473,9 +473,7 @@ class CustomGRU(torch.nn.Module):
         :return: output tensor
         """
         if hx is None:
-            # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
             hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device).to(torch.float32)
-            # hx = torch.ones(inputs.size(0), 1, self.hidden_size, device=inputs.device) / self.hidden_size
         # inputs: batch_size x seq_len x input_size
         outputs = []
 
@@ -494,8 +492,6 @@ class CustomGRU(torch.nn.Module):
                 # predict next hidden state
                 next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
-                # next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
-                #                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
                 prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
             
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
