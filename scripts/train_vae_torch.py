@@ -100,6 +100,14 @@ def train(params):
     
         # for param in vae.logvar_layer.parameters():
         #     param.requires_grad = True
+    
+    if params["train_logvar_only"]:
+        # training logvar layer only (not training encoder, decoder, and prop pred)
+        for param in vae.parameters():
+            param.requires_grad = False
+        
+        for param in vae.encoder.z_logvar.parameters():
+            param.requires_grad = True
 
     # Define optimizer
     if params['optim'] == 'adam':
