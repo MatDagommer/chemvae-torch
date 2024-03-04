@@ -387,20 +387,20 @@ class CustomGRUCell(GRUCell):
         reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
         update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
 
-        new_gate = torch.tanh(
+        # new_gate = torch.tanh(
+        #     F.linear(input, W_h)
+        #     + F.linear(reset_gate * hx, U_h)
+        #     # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+        #     + bias_h
+        # )
+
+        new_gate = F.softmax(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
             # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
-            + bias_h
+            + bias_h,
+            dim=1
         )
-
-        # new_gate = F.softmax(
-        #     F.linear(input, W_h)
-        #     + F.linear(reset_gate * hx, U_h)
-        #     + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
-        #     + bias_h,
-        #     dim=1
-        # )
 
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
