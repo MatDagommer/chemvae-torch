@@ -390,7 +390,7 @@ class CustomGRUCell(GRUCell):
         new_gate = torch.tanh(
             F.linear(input, W_h)
             + F.linear(reset_gate * hx, U_h)
-            + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+            # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
             + bias_h
         )
 
@@ -405,7 +405,7 @@ class CustomGRUCell(GRUCell):
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
         # adding a softmax operation to retrieve a probability distribution
-        # hy = F.softmax(hy, dim=1)
+        hy = F.softmax(hy, dim=1)
 
         return hy
 
