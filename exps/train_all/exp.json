@@ -41,5 +41,6 @@
     "log_interval": 1,
     "use_mu": true,
     "device": "cuda:0",
-    "train_all": true
+    "train_all": true,
+    "train_logvar_only": false
   }
