@@ -568,12 +568,13 @@ class AE_PP_Model(nn.Module):
     def loss_function(self, reconstruction, mu, logvar, x, kl_loss_weight, y=None, prediction=None):
 
         # Compute reconstruction loss
-        reconstruction_criterion = nn.CrossEntropyLoss()
+        # reconstruction_criterion = nn.CrossEntropyLoss()
         
         # reshaping to 2D tensors
         reconstruction = reconstruction.view(reconstruction.size(0), -1)
         x = x.view(x.size(0), -1)
-        reconstruction_loss = reconstruction_criterion(reconstruction, x)
+        # reconstruction_loss = reconstruction_criterion(reconstruction, x)
+        reconstruction_loss = F.cross_entropy(reconstruction, x.argmax(dim=1))
 
         # Compute KL loss
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
