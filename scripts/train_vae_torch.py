@@ -16,6 +16,7 @@ from chemvae_torch.models_torch import EncoderModel, DecoderModel, PropertyPredi
 from chemvae_torch import hyperparameters
 import argparse
 import os
+import pickle
 import yaml
 import chemvae_torch.mol_utils as mu
 from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, schedule
@@ -184,6 +185,9 @@ def train(params):
 
             print(f"Target: {expected:<{max_length}}")
             print(f"Output: {computed:<{max_length}}")
+
+            with open("pickle_file", "wb") as file:
+                pickle.dump((x, reconstruction), file)
 
         # end of epoch eval
         print(f"End of epoch {epoch}")
