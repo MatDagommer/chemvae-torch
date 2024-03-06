@@ -22,7 +22,7 @@
   "PADDING": "right",
   "RAND_SEED": 42,
   "epochs": 120,
-  "limit_data": 25000,
+  "limit_data": 245000,
   "vae_annealer_start": 29,
   "dropout_rate_mid": 0.082832929704794792,
   "anneal_sigmod_slope": 0.51066543057913916,
