@@ -276,6 +276,10 @@ def train_vae_only(params):
         # Freeze encoder
         for param in vae.encoder.parameters():
             param.requires_grad = False
+
+        # Freeze property predictor
+        for param in vae.property_predictor.parameters():
+            param.requires_grad = False
         
         for param in vae.encoder.z_logvar.parameters():
             param.requires_grad = True
