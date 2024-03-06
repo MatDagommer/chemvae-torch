@@ -44,5 +44,5 @@
   "train_all": false,
   "kl_loss_weight": 0.5,
   "train_logvar_only": false,
-  "use_tgru": false
+  "use_tgru": true
 }
