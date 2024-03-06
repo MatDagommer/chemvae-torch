@@ -22,7 +22,7 @@ class CustomBatchNorm1d(nn.Module):
         self.num_features = num_features
         self.eps = eps
         self.momentum = momentum
-        self.weight = nn.Parameter(torch.Tensor(1, num_features).fill_(1))
+        self.weight = nn.Parameter(torch.Tensor(1, num_features).fill_(0.1))
         self.bias = nn.Parameter(torch.Tensor(1, num_features).fill_(0))
         self.register_buffer("running_mean", torch.zeros(1, num_features))
         self.register_buffer("running_var", torch.ones(1, num_features))
@@ -125,6 +125,8 @@ class EncoderModel(nn.Module):
 
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         self.z_mean = nn.Linear(in_features, params["hidden_dim"])
+        self.z_logvar = nn.Linear(in_features, params["hidden_dim"])
+        
 
     def forward(self, x):
         """
@@ -139,7 +141,7 @@ class EncoderModel(nn.Module):
         # Convolution layers
         for i in range(len(self.conv_layers)):
             x = self.conv_layers[i](x)
-            x = F.tanh(x)  # activation
+            x = torch.tanh(x)  # activation
             if self.params["batchnorm_conv"]:
                 x = self.conv_norm_layers[i](x)
 
@@ -152,7 +154,7 @@ class EncoderModel(nn.Module):
             for i in range(len(self.middle_layers)):
                 # print("TEST: ", i)
                 x = self.middle_layers[i](x)
-                x = F.tanh(x)
+                x = torch.tanh(x)
                 if self.params["dropout_rate_mid"] > 0:
                     x = self.dropout_layers[i](x)
                 if self.params["batchnorm_mid"]:
@@ -160,9 +162,11 @@ class EncoderModel(nn.Module):
 
         # output has dim = hidden_dim = 100 (hyperparameters.py)
         z_mean = self.z_mean(x)
+        z_logvar = self.z_logvar(x)
 
         # return both mean and encoder output
-        return z_mean, x
+        # return z_mean, x
+        return z_mean, z_logvar
 
 
 class DecoderModel(nn.Module):
@@ -184,7 +188,6 @@ class DecoderModel(nn.Module):
         self.z = nn.Sequential(
             nn.Linear(params["hidden_dim"], int(params["hidden_dim"])),
             nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-            # nn.BatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity()
             CustomBatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
         )
 
@@ -197,7 +200,6 @@ class DecoderModel(nn.Module):
                         int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)),
                     ),
                     nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
-                    # nn.BatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i))) if params["batchnorm_mid"] else nn.Identity()
                     CustomBatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
                     if params["batchnorm_mid"]
                     else nn.Identity(),
@@ -211,8 +213,10 @@ class DecoderModel(nn.Module):
                     "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
                 )
 
-        # self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], batch_first=True)
-        self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1)
+        if self.params["use_tgru"]:
+            self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1, device=params["device"])
+        else:
+            self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
 
     def forward(self, z_in, targets=None):
         """
@@ -231,14 +235,14 @@ class DecoderModel(nn.Module):
                 z_reps, _ = self.x_dec[i](z_reps)
         x_dec = z_reps
 
-        if self.training and targets is None:
+        if self.training and self.params["use_tgru"] and targets is None:
             raise KeyError("The decoder is in training mode, but no targets were provided.")
 
-        if self.training:
+        if self.params["use_tgru"] and self.training:
             # teacher forcing with the targets
-            x_out, _ = self.x_out(x_dec, targets=targets)
+            x_out, _ = self.x_out.forward(x_dec, targets=targets)
         else:
-            x_out, _ = self.x_out(x_dec)
+            x_out, _ = self.x_out.forward(x_dec)
 
         return x_out
 
@@ -309,16 +313,16 @@ class PropertyPredictorModel(nn.Module):
         """
         out = self.ls_in(x)
         # out = self.activation(out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.dropout(out)
 
         # for hidden_layer in self.hidden_layers:
         out = self.hidden_layers[0](out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.hidden_layers[1](out)
         out = self.hidden_layers[2](out)
         out = self.hidden_layers[3](out)
-        out = nn.functional.tanh(out)
+        out = torch.tanh(out)
         out = self.hidden_layers[4](out)
         out = self.hidden_layers[5](out)
 
@@ -355,7 +359,7 @@ class CustomGRUCell(GRUCell):
     :param bias: whether to use bias
     """
 
-    def __init__(self, input_size, hidden_size, bias=True):
+    def __init__(self, input_size, hidden_size, bias=True, device=None):
         """
         Init Custom GRU cell that uses softmax instead of sigmoid for the new gate.
 
@@ -364,8 +368,10 @@ class CustomGRUCell(GRUCell):
         :param bias: whether to use bias
         """
         super(CustomGRUCell, self).__init__(input_size, hidden_size, bias)
-
-    def forward(self, input, hx=None):
+        # weights for teacher forcing
+        self.weight_tf = torch.randn(hidden_size, hidden_size, requires_grad=True).to(device)
+    
+    def forward(self, input, hx=None, prev_sampled_output=None):
         """
         Forward pass.
 
@@ -373,31 +379,36 @@ class CustomGRUCell(GRUCell):
         :param hx: hidden state
         :return: output tensor
         """
-        # self.check_forward_input(input)
-        if hx is None:
-            hx = input.new_zeros(input.size(0), self.hidden_size, requires_grad=False)
 
-        x_gates = F.linear(input, self.weight_ih) # self.weight_ih = concat(W_r, W_z, W_h)
-        h_gates = F.linear(hx, self.weight_hh) # self.weight_ih = concat(U_r, U_z, U_h)
+        W_r, W_z, W_h = torch.split(self.weight_ih, self.hidden_size, dim=0)
+        U_r, U_z, U_h = torch.split(self.weight_hh, self.hidden_size, dim=0)
+        bias_r, bias_z, bias_h = torch.split(self.bias_ih, self.hidden_size, dim=0)
 
-        x_r, x_z, x_h = x_gates.chunk(3, 1) # returns W_r @ x_t, W_z @ x_t, W_h @ x_t 
-        h_r, h_z, h_h = h_gates.chunk(3, 1) # returns U_r @ h_tm1, U_z @ h_tm1, U_h @ h_tm1 
 
-        reset_gate = torch.sigmoid(x_r + h_r + self.bias_ih[:self.hidden_size])
-        update_gate = torch.sigmoid(x_z + h_z + self.bias_ih[self.hidden_size:2*self.hidden_size])
+        reset_gate = torch.sigmoid(F.linear(input, W_r) + F.linear(hx, U_r) + bias_r)
+        update_gate = torch.sigmoid(F.linear(input, W_z) + F.linear(hx, U_z) + bias_z)
+
+        # new_gate = torch.tanh(
+        #     F.linear(input, W_h)
+        #     + F.linear(reset_gate * hx, U_h)
+        #     # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+        #     + bias_h
+        # )
 
         new_gate = F.softmax(
-            x_h
-            + F.linear(reset_gate * hx, self.weight_hh[2*self.hidden_size:])
-            # + reset_gate * h_h # this line seems to yield better results, although it is incorrect
-            + self.bias_ih[2*self.hidden_size:],
+            F.linear(input, W_h)
+            + F.linear(reset_gate * hx, U_h)
+            # + F.linear(reset_gate * prev_sampled_output, self.weight_tf)
+            + bias_h,
             dim=1
         )
 
         hy = (1. - update_gate) * new_gate + update_gate * hx
 
-        return hy
+        # adding a softmax operation to retrieve a probability distribution
+        # hy = F.softmax(hy, dim=1)
 
+        return hy
 
 class CustomGRU(torch.nn.Module):
     """
@@ -408,7 +419,7 @@ class CustomGRU(torch.nn.Module):
     :param num_layers: number of layers
     """
 
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, device):
         """
         Init Custom GRU layer that uses softmax instead of sigmoid for the new gate.
 
@@ -419,7 +430,8 @@ class CustomGRU(torch.nn.Module):
         super(CustomGRU, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.cell = CustomGRUCell(input_size, hidden_size)
+        self.cell = CustomGRUCell(input_size, hidden_size, device=device)
+        # self.cell = GRUCell(input_size, hidden_size)
         # for _ in range(1, num_layers):
         #     self.cells.append(CustomGRUCell(hidden_size, hidden_size))
 
@@ -440,6 +452,18 @@ class CustomGRU(torch.nn.Module):
     #         outputs.append(hx[:, i + 1])
 
     #     return torch.stack(outputs, dim=1), hx
+        
+    def sample_from_probabilities(self, prob_tensor, device):
+        batch_size, hidden_dim = prob_tensor.size()
+        
+        # Sample indices from the distributions
+        indices = torch.multinomial(prob_tensor, num_samples=1).view(-1).to(device)
+        
+        # Create the one-hot encoded tensor
+        one_hot = torch.zeros(batch_size, hidden_dim).to(device)
+        one_hot.scatter_(1, indices.unsqueeze(1), 1).to(device)
+        
+        return one_hot
     
     def forward(self, inputs, targets=None, hx=None):
         """
@@ -450,89 +474,132 @@ class CustomGRU(torch.nn.Module):
         :return: output tensor
         """
         if hx is None:
-            # hx = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device)
+            hx = torch.zeros(inputs.size(0), 1, self.hidden_size, device=inputs.device).to(torch.float32)
         # inputs: batch_size x seq_len x input_size
         outputs = []
-        
-        # Creating a tensor that contains the targets + zeros at the beginning 
+
+        # Creating a tensor that contains the previous target/sampled output + zeros at the beginning 
         # (first iteration has no teacher forcing)
+        prev_sampled_output = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device).to(torch.float32)
         if targets is not None:
-            targets_and_zeros = torch.zeros(inputs.size(0), inputs.size(1) + 1, self.hidden_size, device=inputs.device)
-            targets_and_zeros[:, 1:, :] = targets
+            prev_sampled_output[:, 1:, :] = targets
         
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], targets_and_zeros[:, i])
+                next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
+                                        prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
-                next_hidden = self.cell(inputs[:, i], hx[:, i])
+                # predict next hidden state
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
+                                        prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
+                prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
+            
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
             outputs.append(next_hidden)
 
-        return torch.stack(outputs, dim=1), hx
+        return torch.stack(outputs, dim=1).to(inputs.device), hx
 
 
 class AE_PP_Model(nn.Module):
     """
     Variational Autoencoder with property prediction (QED, SAS, logP).
     """
-    def __init__(self, encoder, decoder, property_predictor, params):
+    def __init__(self, encoder, decoder, params, device, property_predictor=None):
         
         super(AE_PP_Model, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.property_predictor = property_predictor
 
         self.loss_weights = params["model_loss_weights"]
         self.hidden_dim = params["hidden_dim"]
+        self.use_mu = params["use_mu"]
+        self.do_prop_pred = params["do_prop_pred"]
+
+        if self.do_prop_pred:
+            self.property_predictor = property_predictor
+
+        self.device = device
 
         # similar to the layer found in models.variational_layers (original code)
-        self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim)
+        # self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
+        # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        return mu + eps * std
+    def reparameterize(self, mu, logvar, kl_loss_weight):
+        std = torch.exp(0.5 * logvar).to(self.device)
+        eps = torch.randn_like(std).to(self.device)
+        # z = mu + eps * std * kl_loss_weight
+        z = mu + eps * std
+        return z
 
-    def forward(self, x):
+    def forward(self, x, kl_loss_weight=None):
         # Encode input - returns mean and encoder output
-        mu, encoder_output = self.encoder(x)
+        # mu, encoder_output = self.encoder(x)
+
+        mu, logvar = self.encoder(x)
         
         # Retrieving property prediction
-        prediction = self.property_predictor(mu)
+        if self.do_prop_pred:
+            prediction = self.property_predictor(mu)
 
         # Compute log variance from the encoder's output
-        logvar = self.logvar_layer(encoder_output)
+        # logvar = self.logvar_layer(encoder_output)
         
+        if kl_loss_weight is None:
+            kl_loss_weight = 0
+
         # Reparameterization trick to sample from the latent space
-        z = self.reparameterize(mu, logvar)
+        z = self.reparameterize(mu, logvar, kl_loss_weight)
+
+        # # batchnormalization
+        # z = self.batch_norm_vae(z)
         
         # Decode the latent variable
-        reconstruction = self.decoder(z, x)
-        
-        return reconstruction, prediction, mu, logvar
+        if self.use_mu:
+            # decoding using the mean only (no stochasticity)
+            reconstruction = self.decoder(mu, x)
+        else:
+            # with sampling (classic VAE training)
+            reconstruction = self.decoder(z, x)
 
-    def loss_function(self, reconstruction, prediction, mu, logvar, x, y):
+        if self.do_prop_pred:
+            return reconstruction, mu, logvar, prediction
+        else:
+            return reconstruction, mu, logvar
+
+    def loss_function(self, reconstruction, mu, logvar, x, kl_loss_weight, y=None, prediction=None):
 
         # Compute reconstruction loss
-        reconstruction_criterion = nn.CrossEntropyLoss()
+        # reconstruction_criterion = nn.CrossEntropyLoss()
         
         # reshaping to 2D tensors
-        reconstruction = reconstruction.view(reconstruction.size(0), -1)
-        x = x.view(x.size(0), -1)
-        reconstruction_loss = reconstruction_criterion(reconstruction, x)
+        # reconstruction = reconstruction.view(reconstruction.size(0), -1)
+        # x = x.view(x.size(0), -1)
+        # Transposing so that the dimensions fit F.cross_entropy input format
+        reconstruction = reconstruction.transpose(2, 1)
+        x = x.transpose(2, 1)
+        # reconstruction_loss = reconstruction_criterion(reconstruction, x)
+        reconstruction_loss = F.cross_entropy(reconstruction, x.argmax(dim=1))
 
         # Compute KL loss
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
         # Compute prediction loss
-        prediction_criterion = nn.MSELoss()
-        prediction_loss = prediction_criterion(prediction, y)
+        if prediction is not None:
+            prediction_criterion = nn.MSELoss()
+            prediction_loss = prediction_criterion(prediction, y)
 
-        # Total loss
-        total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
-                    + kl_loss * self.loss_weights["kl_loss"] \
-                    + prediction_loss * self.loss_weights["prediction_loss"]
+            # Total loss
+            total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
+                        + kl_loss * kl_loss_weight * self.loss_weights["ae_loss"] \
+                        + prediction_loss * self.loss_weights["prediction_loss"]
+            
+            return total_loss, reconstruction_loss, kl_loss, prediction_loss
+        
+        else:
+            # Total loss
+            total_loss = reconstruction_loss * self.loss_weights["reconstruction_loss"] \
+                        + kl_loss * kl_loss_weight
 
-        return total_loss, reconstruction_loss, kl_loss, prediction_loss
+            return total_loss, reconstruction_loss, kl_loss
+        
