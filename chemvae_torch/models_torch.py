@@ -213,8 +213,10 @@ class DecoderModel(nn.Module):
                     "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
                 )
 
-        # self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1, device=params["device"])
-        self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
+        if self.params["use_tgru"]:
+            self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1, device=params["device"])
+        else:
+            self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
 
     def forward(self, z_in, targets=None):
         """
@@ -233,13 +235,12 @@ class DecoderModel(nn.Module):
                 z_reps, _ = self.x_dec[i](z_reps)
         x_dec = z_reps
 
-        if self.training and targets is None:
+        if self.training and self.params["use_tgru"] and targets is None:
             raise KeyError("The decoder is in training mode, but no targets were provided.")
 
-        if self.training:
+        if self.params["use_tgru"] and self.training:
             # teacher forcing with the targets
             x_out, _ = self.x_out.forward(x_dec, targets=targets)
-            # x_out, _ = self.x_out.forward(x_dec)
         else:
             x_out, _ = self.x_out.forward(x_dec)
 
@@ -486,11 +487,7 @@ class CustomGRU(torch.nn.Module):
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                # next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
-                #                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
-
-                # removed teacher forcing temporarily
-                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
+                next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
                 # predict next hidden state
