@@ -486,7 +486,11 @@ class CustomGRU(torch.nn.Module):
         for i in range(inputs.size(1)):
             if self.training:
                 # Use teacher forcing by replacing the computed hidden state with the actual previous target
-                next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
+                # next_hidden = self.cell(inputs[:, i], hx=prev_sampled_output[:, i], 
+                #                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
+
+                # removed teacher forcing temporarily
+                next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
             else:
                 # predict next hidden state
