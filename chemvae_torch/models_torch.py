@@ -571,8 +571,11 @@ class AE_PP_Model(nn.Module):
         # reconstruction_criterion = nn.CrossEntropyLoss()
         
         # reshaping to 2D tensors
-        reconstruction = reconstruction.view(reconstruction.size(0), -1)
-        x = x.view(x.size(0), -1)
+        # reconstruction = reconstruction.view(reconstruction.size(0), -1)
+        # x = x.view(x.size(0), -1)
+        # Transposing so that the dimensions fit F.cross_entropy input format
+        reconstruction = reconstruction.transpose(2, 1)
+        x = x.transpose(2, 1)
         # reconstruction_loss = reconstruction_criterion(reconstruction, x)
         reconstruction_loss = F.cross_entropy(reconstruction, x.argmax(dim=1))
 
