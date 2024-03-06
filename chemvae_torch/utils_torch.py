@@ -145,7 +145,7 @@ def vectorize_data(params):
         return X_train, X_test
 
 
-def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="linear"):
+def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="sigmoid"):
     """
     Annealing function.
 

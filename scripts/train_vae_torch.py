@@ -57,7 +57,7 @@ def train(params):
     # Load pretrained parameters 
     if params["pretrained"]:
         encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
-        decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
+        # decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
         property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
 
     # Retrieving loss weights
