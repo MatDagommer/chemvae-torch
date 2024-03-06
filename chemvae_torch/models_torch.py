@@ -515,6 +515,7 @@ class AE_PP_Model(nn.Module):
         self.hidden_dim = params["hidden_dim"]
         self.use_mu = params["use_mu"]
         self.do_prop_pred = params["do_prop_pred"]
+        self.batch_size = params["batch_size"]
 
         if self.do_prop_pred:
             self.property_predictor = property_predictor
@@ -583,6 +584,7 @@ class AE_PP_Model(nn.Module):
 
         # Compute KL loss
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        kl_loss /= self.batch_size
 
         # Compute prediction loss
         if prediction is not None:
