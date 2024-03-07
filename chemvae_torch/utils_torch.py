@@ -173,7 +173,7 @@ def plot_losses(reconstruction_loss, kl_loss, prediction_loss, filename="train")
     
     # Plotting
     plt.figure(figsize=(10, 6))
-    epochs = np.arange(1, len(reconstruction_loss))
+    epochs = np.arange(1, len(reconstruction_loss)+1)
     plt.plot(epochs, reconstruction_loss, label='Reconstruction Loss', color='blue')
     plt.plot(epochs, kl_loss, label='KL Loss', color='green')
     plt.plot(epochs, prediction_loss, label='Prediction Loss', color='red')
