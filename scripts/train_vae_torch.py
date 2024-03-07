@@ -158,7 +158,6 @@ def train(params):
         for batch_idx, (x, y) in enumerate(train_loader):
 
             vae.train()
-            torch.nn.utils.clip_grad_norm_(vae.parameters(), max_norm=1.0)
 
 
             # update KL loss weight based on schedule
