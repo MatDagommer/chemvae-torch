@@ -238,6 +238,9 @@ class DecoderModel(nn.Module):
         if self.training and self.params["use_tgru"] and targets is None:
             raise KeyError("The decoder is in training mode, but no targets were provided.")
 
+        if self.params["no_decoder"]:
+            self.x_out.eval()
+
         if self.params["use_tgru"] and self.training:
             # teacher forcing with the targets
             x_out, _ = self.x_out.forward(x_dec, targets=targets)
@@ -493,7 +496,7 @@ class CustomGRU(torch.nn.Module):
                 # predict next hidden state
                 next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
-                prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
+                # prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
             
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
             outputs.append(next_hidden)
