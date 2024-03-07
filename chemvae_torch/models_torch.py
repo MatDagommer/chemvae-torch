@@ -556,8 +556,8 @@ class AE_PP_Model(nn.Module):
         # z = self.reparameterize(mu, logvar, kl_loss_weight)
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        # z = mu + eps * std * kl_loss_weight
-        z = mu + eps * std
+        z = mu + eps * std * kl_loss_weight
+        # z = mu + eps * std
 
         # # batchnormalization
         # z = self.batch_norm_vae(z)
