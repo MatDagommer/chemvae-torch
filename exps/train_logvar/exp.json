@@ -43,5 +43,7 @@
     "device": "cuda:0",
     "train_all": false,
     "train_logvar_only": true,
-    "use_tgru": true
+    "use_tgru": true,
+    "kl_loss_weight": 0,
+    "schedule": "constant"
   }

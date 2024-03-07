@@ -164,3 +164,5 @@ def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="sigmoid")
         weight_final = 1
         n_epochs = 120
         return min(weight_final, weight_orig + (weight_final - weight_orig) * (time_step / n_epochs))
+    elif mode == "constant":
+        return weight_orig
