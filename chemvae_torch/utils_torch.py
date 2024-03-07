@@ -174,11 +174,19 @@ def plot_losses(reconstruction_loss, kl_loss, prediction_loss, filename="train")
     # Plotting
     plt.figure(figsize=(10, 6))
     epochs = np.arange(1, len(reconstruction_loss)+1)
+    # Plotting the first curve with the left y-axis
     plt.plot(epochs, reconstruction_loss, label='Reconstruction Loss', color='blue')
-    plt.plot(epochs, kl_loss, label='KL Loss', color='green')
-    plt.plot(epochs, prediction_loss, label='Prediction Loss', color='red')
+    plt.ylabel('Reconstruction Loss', color='blue')
+    plt.tick_params(axis='y', labelcolor='blue')
+
+    # Creating a twin y-axis and plotting the second curve
+    plt.twinx()
+    plt.plot(epochs, kl_loss, label='KL Loss', color='red')
+    plt.ylabel('KL Loss', color='red')
+    plt.tick_params(axis='y', labelcolor='red')
+
+    # Adding labels, title, legend, and grid
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
     plt.title('Losses Over Epochs')
     plt.legend()
     plt.grid(True)
