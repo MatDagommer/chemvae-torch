@@ -569,6 +569,8 @@ class AE_PP_Model(nn.Module):
         else:
             # with sampling (classic VAE training)
             reconstruction = self.decoder(z, x)
+        
+        print("RECON size: ", reconstruction.size())
 
         if self.do_prop_pred:
             return reconstruction, mu, logvar, prediction
