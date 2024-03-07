@@ -546,7 +546,7 @@ class AE_PP_Model(nn.Module):
         # Reparameterization trick to sample from the latent space
         # z = self.reparameterize(mu, logvar, kl_loss_weight)
         std = torch.exp(0.5 * logvar)
-        std = torch.clamp(std, min=1e-5, max=1e5)
+        std = torch.clamp(std, min=0, max=1e-3)
         eps = torch.randn_like(std)
         z = mu + eps * std * 0
         
