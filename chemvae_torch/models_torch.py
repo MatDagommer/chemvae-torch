@@ -548,7 +548,7 @@ class AE_PP_Model(nn.Module):
         std = torch.exp(0.5 * logvar)
         std = torch.clamp(std, min=0, max=1e-3)
         eps = torch.randn_like(std)
-        z = mu + eps * std * 0
+        z = mu + eps * std
         
         # Decode the latent variable
         if self.use_mu:
