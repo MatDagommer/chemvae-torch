@@ -525,10 +525,6 @@ class AE_PP_Model(nn.Module):
 
         self.device = device
 
-        # similar to the layer found in models.variational_layers (original code)
-        # self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
-        # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
-
     # def reparameterize(self, mu, logvar, kl_loss_weight):
     #     std = torch.exp(0.5 * logvar).to(self.device)
     #     eps = torch.randn_like(std).to(self.device)
@@ -537,17 +533,12 @@ class AE_PP_Model(nn.Module):
     #     return z
 
     def forward(self, x, kl_loss_weight=None):
-        # Encode input - returns mean and encoder output
-        # mu, encoder_output = self.encoder(x)
 
         mu, logvar = self.encoder(x)
         
         # Retrieving property prediction
         if self.do_prop_pred:
             prediction = self.property_predictor(mu)
-
-        # Compute log variance from the encoder's output
-        # logvar = self.logvar_layer(encoder_output)
         
         if kl_loss_weight is None:
             kl_loss_weight = 0
@@ -556,11 +547,8 @@ class AE_PP_Model(nn.Module):
         # z = self.reparameterize(mu, logvar, kl_loss_weight)
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        z = mu + eps * std * kl_loss_weight
-        # z = mu + eps * std
-
-        # # batchnormalization
-        # z = self.batch_norm_vae(z)
+        # z = mu + eps * std * kl_loss_weight
+        z = mu + eps * std
         
         # Decode the latent variable
         if self.use_mu:
@@ -569,8 +557,6 @@ class AE_PP_Model(nn.Module):
         else:
             # with sampling (classic VAE training)
             reconstruction = self.decoder(z, x)
-        
-        print("RECON size: ", reconstruction.size())
 
         if self.do_prop_pred:
             return reconstruction, mu, logvar, prediction
@@ -579,15 +565,13 @@ class AE_PP_Model(nn.Module):
 
     def loss_function(self, reconstruction, mu, logvar, x, kl_loss_weight, y=None, prediction=None):
 
-        # Compute reconstruction loss
-        # reconstruction_criterion = nn.CrossEntropyLoss()
-        
-        # reshaping to 2D tensors
-        # reconstruction = reconstruction.view(reconstruction.size(0), -1)
-        # x = x.view(x.size(0), -1)
         # Transposing so that the dimensions fit F.cross_entropy input format
         reconstruction = reconstruction.transpose(2, 1)
         x = x.transpose(2, 1)
+
+        # Apply softmax to the reconstruction output
+        reconstruction = F.softmax(reconstruction, dim=1)
+
         # reconstruction_loss = reconstruction_criterion(reconstruction, x)
         reconstruction_loss = F.cross_entropy(reconstruction, x.argmax(dim=1))
 

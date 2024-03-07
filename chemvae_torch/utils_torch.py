@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 import chemvae_torch.mol_utils as mu
+import matplotlib.pyplot as plt
 
 def hot_to_smiles(hot_x, indices_chars):
     
@@ -166,3 +167,22 @@ def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="sigmoid")
         return min(weight_final, weight_orig + (weight_final - weight_orig) * (time_step / n_epochs))
     elif mode == "constant":
         return weight_orig
+    
+
+def plot_losses(reconstruction_loss, kl_loss, prediction_loss, filename="train"):
+    
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    epochs = np.arange(1, len(reconstruction_loss))
+    plt.plot(epochs, reconstruction_loss, label='Reconstruction Loss', color='blue')
+    plt.plot(epochs, kl_loss, label='KL Loss', color='green')
+    plt.plot(epochs, prediction_loss, label='Prediction Loss', color='red')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Losses Over Epochs')
+    plt.legend()
+    plt.grid(True)
+
+    # Save the plot as a .jpg file
+    plt.savefig(filename + '_losses_plot.jpg')
+    plt.show()
