@@ -45,5 +45,5 @@
   "train_logvar_only": false,
   "use_tgru": false,
   "kl_loss_weight": 0,
-  "schedule": "sigmoid"
+  "schedule": "linear"
 }
