@@ -19,7 +19,7 @@ import os
 import pickle
 import yaml
 import chemvae_torch.mol_utils as mu
-from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, schedule
+from chemvae_torch.utils_torch import vectorize_data, hot_to_smiles, schedule, plot_losses
 
 # Define the models, loss functions, etc.
 # You need to define your PyTorch models and other necessary components here.
@@ -57,7 +57,7 @@ def train(params):
     # Load pretrained parameters 
     if params["pretrained"]:
         encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
-        decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
+        # decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
         property_predictor.load_state_dict(torch.load(params['pretrained_predictor_file']))
 
     # Retrieving loss weights
@@ -94,6 +94,9 @@ def train(params):
         
         for param in vae.encoder.z_logvar.parameters():
             param.requires_grad = True
+
+        for param in vae.encoder.z_mean.parameters():
+            param.requires_grad = True
         
         # Freeze property predictor
         for param in vae.property_predictor.parameters():
@@ -110,10 +113,12 @@ def train(params):
         for param in vae.encoder.z_logvar.parameters():
             param.requires_grad = True
 
+        print("Training Decoder?: ", vae.decoder.training)
+
     # Define optimizer
     if params['optim'] == 'adam':
-        # optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
-        optimizer = optim.Adam(vae.parameters())
+        optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
+        # optimizer = optim.Adam(vae.parameters())
     elif params['optim'] == 'rmsprop':
         optimizer = optim.RMSprop(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
     elif params['optim'] == 'sgd':
@@ -137,19 +142,31 @@ def train(params):
     chars = yaml.safe_load(open(params["char_file"]))
     indices_char = dict((i, c) for i, c in enumerate(chars))
 
+    train_recon_losses = []
+    train_kl_losses = []
+    train_pred_losses = []
+
+    batches_per_epoch = len(train_loader)
+
     # Train the model
     for epoch in range(params['prev_epochs'], params['epochs']):
         
+        train_recon_loss = 0
+        train_kl_loss = 0
+        train_pred_loss = 0
+
         for batch_idx, (x, y) in enumerate(train_loader):
 
             vae.train()
+
 
             # update KL loss weight based on schedule
             kl_loss_weight = schedule(
                 epoch,
                 slope=params["anneal_sigmod_slope"],
                 start=params["vae_annealer_start"],
-                weight_orig=params["kl_loss_weight"]
+                weight_orig=params["kl_loss_weight"],
+                mode=params["schedule"]
             )
 
             # print("requires grad?: ", vae.encoder.z_logvar.weight.requires_grad)
@@ -189,8 +206,19 @@ def train(params):
             with open("pickle_file", "wb") as file:
                 pickle.dump((x, reconstruction), file)
 
+            train_recon_loss += recon_loss.item()
+            train_kl_loss += kl_loss.item()
+            train_pred_loss += pred_loss.item()
+
         # end of epoch eval
         print(f"End of epoch {epoch}")
+
+        # Save epoch losses
+        train_recon_losses.append(train_recon_loss / batches_per_epoch)
+        train_kl_losses.append(train_kl_loss / batches_per_epoch)
+        train_pred_losses.append(train_pred_loss / batches_per_epoch)
+
+        plot_losses(train_recon_losses, train_kl_losses, train_pred_losses, filename="train")
 
         vae.eval()
 
@@ -214,168 +242,11 @@ def train(params):
         print(f"Target: {expected_test:<{max_length}}")
         print(f"Output: {computed_test:<{max_length}}")
 
-        # Print some metrics or do logging
-        # if epoch % params['log_interval'] == 0:
-        #     print(f"Epoch {epoch}: Recon Loss: {recon_loss.item()}. Total Loss: {loss.item()}")
     
     # Save model weights
     torch.save(decoder.state_dict(), str(params["exp_path"] / params['decoder_weights_file']))
     torch.save(encoder.state_dict(), str(params["exp_path"] / params['encoder_weights_file']))
     torch.save(property_predictor.state_dict(), str(params["exp_path"] / params['prop_pred_weights_file']))
-    
-
-    print('time of run : ', time.time() - start_time)
-    print('**FINISHED**')
-
-    return
-
-def train_vae_only(params):
-    start_time = time.time()
-    device = params["device"]
-
-    # Load data
-    X_train, X_test = vectorize_data(params)
-
-
-    # Convert data to torch tensors
-    X_train = torch.from_numpy(X_train).float().to(device)
-    X_test = torch.from_numpy(X_test).float().to(device)
-
-    # Instantiate models
-    encoder = EncoderModel(params)
-    decoder = DecoderModel(params)
-
-    # Load pretrained parameters 
-    if params["pretrained"]:
-        encoder.load_state_dict(torch.load(params['pretrained_encoder_file']))
-        decoder.load_state_dict(torch.load(params['pretrained_decoder_file']))
-
-    # Retrieving loss weights
-    #NOTE: In original implementation, xent_loss_weight and kl_loss_weight are trainable
-    xent_loss_weight = params['xent_loss_weight'] # Reconstruction (AE 1/2)
-    kl_loss_weight = params['kl_loss_weight'] # KL (AE 2/2)
-    
-    model_loss_weights = {
-                    'reconstruction_loss': xent_loss_weight,
-                    }
-    
-    params["model_loss_weights"] = model_loss_weights
-    
-    vae = AE_PP_Model(encoder, decoder, params, device)
-
-    # print(vae)
-
-    # move models to GPU
-    encoder = encoder.to(device)
-    decoder = decoder.to(device)
-    vae = vae.to(device)
-
-    print("TRAIN ALL: ", params["train_all"])
-    
-    if not params["train_all"]:
-        # Freeze encoder
-        for param in vae.encoder.parameters():
-            param.requires_grad = False
-
-        # Freeze property predictor
-        for param in vae.property_predictor.parameters():
-            param.requires_grad = False
-        
-        for param in vae.encoder.z_logvar.parameters():
-            param.requires_grad = True
-
-    # Define optimizer
-    if params['optim'] == 'adam':
-        # optimizer = optim.Adam(vae.parameters(), lr=params['lr'], betas=(params['momentum'], 0.999))
-        optimizer = optim.Adam(vae.parameters())
-    elif params['optim'] == 'rmsprop':
-        optimizer = optim.RMSprop(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
-    elif params['optim'] == 'sgd':
-        optimizer = optim.SGD(vae.parameters(), lr=params['lr'], momentum=params['momentum'])
-    else:
-        raise NotImplementedError("Please define valid optimizer")
-
-    # Prepare data loaders (assuming X_train, X_test, Y_train, Y_test are PyTorch tensors)
-    train_dataset = torch.utils.data.TensorDataset(X_train)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=params['batch_size'], shuffle=True)
-    test_dataset = torch.utils.data.TensorDataset(X_test)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=params['batch_size'], shuffle=False)
-
-    (test_batch,) = next(iter(test_loader))
-    test_sample = test_batch[0:1]
-
-    (train_batch,) = next(iter(train_loader))
-    train_sample = train_batch[0:1]
-
-    # retrieving character encoding
-    chars = yaml.safe_load(open(params["char_file"]))
-    indices_char = dict((i, c) for i, c in enumerate(chars))
-
-    # Train the model
-    for epoch in range(params['prev_epochs'], params['epochs']):
-        
-        for batch_idx, (x,) in enumerate(train_loader):
-
-            vae.train()
-
-            print("Test weights GRU: \n", vae.decoder.x_out.cell.weight_ih[0])
-
-            # update KL loss weight based on schedule
-            kl_loss_weight = schedule(
-                epoch,
-                slope=params["anneal_sigmod_slope"],
-                start=params["vae_annealer_start"],
-                weight_orig=params["kl_loss_weight"]
-            )
-
-            reconstruction, mu, logvar = vae.forward(x, kl_loss_weight=kl_loss_weight)
-            print("train (x): ", hot_to_smiles(x.detach().cpu().numpy(), indices_char)[0])
-            print("train (y): ", hot_to_smiles(reconstruction.detach().cpu().numpy(), indices_char)[0])
-            loss, recon_loss, kl_loss = vae.loss_function(
-                reconstruction=reconstruction,
-                mu=mu, 
-                logvar=logvar, 
-                x=x,
-                kl_loss_weight=kl_loss_weight,
-            )
-
-            # Backward pass and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            
-            # eval
-            vae.eval()
-            recon_test, _, _ = vae.forward(test_sample)
-            recon_train, _, _ = vae.forward(train_sample)
-
-            expected = hot_to_smiles(test_sample.detach().cpu().numpy(), indices_char)[0]
-            computed = hot_to_smiles(recon_test.detach().cpu().numpy(), indices_char)[0]
-            
-            expected_train = hot_to_smiles(train_sample.detach().cpu().numpy(), indices_char)[0]
-            computed_train = hot_to_smiles(recon_train.detach().cpu().numpy(), indices_char)[0]
-
-            max_length = max(len(expected), len(computed))
-
-            # Format and print the strings with alignment
-            print("Epoch {} Batch {}.".format(epoch, batch_idx))
-
-            # Print Losses
-            print(f"Losses - REC: {recon_loss.item()} KL: {kl_loss.item()} TOT: {loss.item()}")
-            
-            print("TRAIN: ")
-            # Print train strings (target and output)
-            print(f"Target: {expected_train:<{max_length}}")
-            print(f"Output: {computed_train:<{max_length}}")
-
-            print("TEST: ")
-            # Print test strings (target and output)
-            print(f"Target: {expected:<{max_length}}")
-            print(f"Output: {computed:<{max_length}}")
-    
-    # Save model weights
-    torch.save(decoder.state_dict(), str(params["exp_path"] / params['decoder_weights_file']))
-    torch.save(encoder.state_dict(), str(params["exp_path"] / params['encoder_weights_file']))
     
 
     print('time of run : ', time.time() - start_time)
@@ -418,7 +289,4 @@ if __name__ == "__main__":
     print("All params:", params)
     print("GPU available? {}".format(torch.cuda.is_available()))
 
-    if params["do_prop_pred"]:
-        train(params)
-    else:
-        train_vae_only(params)
+    train(params)

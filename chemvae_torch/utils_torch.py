@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 import chemvae_torch.mol_utils as mu
+import matplotlib.pyplot as plt
 
 def hot_to_smiles(hot_x, indices_chars):
     
@@ -145,7 +146,7 @@ def vectorize_data(params):
         return X_train, X_test
 
 
-def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="linear"):
+def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="sigmoid"):
     """
     Annealing function.
 
@@ -164,3 +165,38 @@ def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="linear"):
         weight_final = 1
         n_epochs = 120
         return min(weight_final, weight_orig + (weight_final - weight_orig) * (time_step / n_epochs))
+    elif mode == "constant":
+        return weight_orig
+    elif mode == "cyclical":
+        n_epochs = 120
+        start = 20
+        phase = time_step // (n_epochs / 3) # 3 phases per training
+        sub_time_step = phase % (n_epochs / 3)
+        return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(sub_time_step)))))
+    
+
+def plot_losses(reconstruction_loss, kl_loss, prediction_loss, filename="train"):
+    
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    epochs = np.arange(1, len(reconstruction_loss)+1)
+    # Plotting the first curve with the left y-axis
+    plt.plot(epochs, reconstruction_loss, label='Reconstruction Loss', color='blue')
+    plt.ylabel('Reconstruction Loss', color='blue')
+    plt.tick_params(axis='y', labelcolor='blue')
+
+    # Creating a twin y-axis and plotting the second curve
+    plt.twinx()
+    plt.plot(epochs, kl_loss, label='KL Loss', color='red')
+    plt.ylabel('KL Loss', color='red')
+    plt.tick_params(axis='y', labelcolor='red')
+
+    # Adding labels, title, legend, and grid
+    plt.xlabel('Epochs')
+    plt.title('Losses Over Epochs')
+    plt.legend()
+    plt.grid(True)
+
+    # Save the plot as a .jpg file
+    plt.savefig(filename + '_losses_plot.jpg')
+    plt.show()

@@ -6,8 +6,8 @@
     "encoder_weights_file": "encoder.pt",
     "decoder_weights_file": "decoder.pt",
     "prop_pred_weights_file": "prop_pred.pt",
-    "pretrained": false,
-    "pretrained_weights": null,
+    "pretrained": true,
+    "pretrained_weights": "train_decoder_mu",
     "reg_prop_tasks": [
       "qed",
       "SAS",
@@ -22,7 +22,7 @@
     "PADDING": "right",
     "RAND_SEED": 42,
     "epochs": 120,
-    "limit_data": 25000,
+    "limit_data": 245000,
     "vae_annealer_start": 29,
     "dropout_rate_mid": 0.082832929704794792,
     "anneal_sigmod_slope": 0.51066543057913916,
@@ -43,5 +43,6 @@
     "device": "cuda:0",
     "train_all": true,
     "train_logvar_only": false,
-    "use_tgru": true
+    "use_tgru": false,
+    "schedule": "cyclical"
   }

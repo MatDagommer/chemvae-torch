@@ -493,10 +493,13 @@ class CustomGRU(torch.nn.Module):
                 # predict next hidden state
                 next_hidden = self.cell(inputs[:, i], hx=hx[:, i], 
                                         prev_sampled_output=prev_sampled_output[:, i]).to(inputs.device)
-                prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
+                # prev_sampled_output[:, i+1] = self.sample_from_probabilities(next_hidden, inputs.device)
             
             hx = torch.cat((hx, next_hidden.unsqueeze(1)), dim=1)
             outputs.append(next_hidden)
+        
+        print("LEN OUTPUT: ", len(outputs))
+        print("SIzE output: ", outputs[0].size())
 
         return torch.stack(outputs, dim=1).to(inputs.device), hx
 
@@ -515,44 +518,37 @@ class AE_PP_Model(nn.Module):
         self.hidden_dim = params["hidden_dim"]
         self.use_mu = params["use_mu"]
         self.do_prop_pred = params["do_prop_pred"]
+        self.batch_size = params["batch_size"]
 
         if self.do_prop_pred:
             self.property_predictor = property_predictor
 
         self.device = device
 
-        # similar to the layer found in models.variational_layers (original code)
-        # self.logvar_layer = nn.Linear(self.hidden_dim, self.hidden_dim).to(self.device)
-        # self.batch_norm_vae = CustomBatchNorm1d(self.hidden_dim)
-
-    def reparameterize(self, mu, logvar, kl_loss_weight):
-        std = torch.exp(0.5 * logvar).to(self.device)
-        eps = torch.randn_like(std).to(self.device)
-        # z = mu + eps * std * kl_loss_weight
-        z = mu + eps * std
-        return z
+    # def reparameterize(self, mu, logvar, kl_loss_weight):
+    #     std = torch.exp(0.5 * logvar).to(self.device)
+    #     eps = torch.randn_like(std).to(self.device)
+    #     # z = mu + eps * std * kl_loss_weight
+    #     z = mu + eps * std
+    #     return z
 
     def forward(self, x, kl_loss_weight=None):
-        # Encode input - returns mean and encoder output
-        # mu, encoder_output = self.encoder(x)
 
         mu, logvar = self.encoder(x)
         
         # Retrieving property prediction
         if self.do_prop_pred:
             prediction = self.property_predictor(mu)
-
-        # Compute log variance from the encoder's output
-        # logvar = self.logvar_layer(encoder_output)
         
         if kl_loss_weight is None:
             kl_loss_weight = 0
 
         # Reparameterization trick to sample from the latent space
-        z = self.reparameterize(mu, logvar, kl_loss_weight)
-
-        # # batchnormalization
-        # z = self.batch_norm_vae(z)
+        # z = self.reparameterize(mu, logvar, kl_loss_weight)
+        std = torch.exp(0.5 * logvar)
+        # std = torch.clamp(std, min=0, max=1e-3)
+        eps = torch.randn_like(std)
+        z = mu + eps * std
         
         # Decode the latent variable
         if self.use_mu:
@@ -569,20 +565,21 @@ class AE_PP_Model(nn.Module):
 
     def loss_function(self, reconstruction, mu, logvar, x, kl_loss_weight, y=None, prediction=None):
 
-        # Compute reconstruction loss
-        # reconstruction_criterion = nn.CrossEntropyLoss()
-        
-        # reshaping to 2D tensors
-        # reconstruction = reconstruction.view(reconstruction.size(0), -1)
-        # x = x.view(x.size(0), -1)
         # Transposing so that the dimensions fit F.cross_entropy input format
         reconstruction = reconstruction.transpose(2, 1)
         x = x.transpose(2, 1)
+
+        # Apply softmax to the reconstruction output
+        reconstruction = F.softmax(reconstruction, dim=1)
+
         # reconstruction_loss = reconstruction_criterion(reconstruction, x)
         reconstruction_loss = F.cross_entropy(reconstruction, x.argmax(dim=1))
 
         # Compute KL loss
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        # custom_std = 1e-3
+        # kl_loss = -0.5 * torch.sum(1 + 2 * torch.log(custom_std) - 2 * logvar.exp() - (mu.pow(2) + logvar.exp()) / custom_std**2)
+        kl_loss /= self.batch_size
 
         # Compute prediction loss
         if prediction is not None:
