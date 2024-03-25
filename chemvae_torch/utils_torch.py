@@ -167,6 +167,12 @@ def schedule(time_step, slope=1.0, start=None, weight_orig=None, mode="sigmoid")
         return min(weight_final, weight_orig + (weight_final - weight_orig) * (time_step / n_epochs))
     elif mode == "constant":
         return weight_orig
+    elif mode == "cyclical":
+        n_epochs = 120
+        start = 15
+        phase = time_step // (n_epochs / 3) # 3 phases per training
+        sub_time_step = phase % (n_epochs / 3)
+        return weight_orig * float(1 / (1.0 + np.exp(slope * (start - float(sub_time_step)))))
     
 
 def plot_losses(reconstruction_loss, kl_loss, prediction_loss, filename="train"):

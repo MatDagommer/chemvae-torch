@@ -546,7 +546,7 @@ class AE_PP_Model(nn.Module):
         # Reparameterization trick to sample from the latent space
         # z = self.reparameterize(mu, logvar, kl_loss_weight)
         std = torch.exp(0.5 * logvar)
-        std = torch.clamp(std, min=0, max=1e-3)
+        # std = torch.clamp(std, min=0, max=1e-3)
         eps = torch.randn_like(std)
         z = mu + eps * std
         
@@ -577,6 +577,8 @@ class AE_PP_Model(nn.Module):
 
         # Compute KL loss
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        # custom_std = 1e-3
+        # kl_loss = -0.5 * torch.sum(1 + 2 * torch.log(custom_std) - 2 * logvar.exp() - (mu.pow(2) + logvar.exp()) / custom_std**2)
         kl_loss /= self.batch_size
 
         # Compute prediction loss
