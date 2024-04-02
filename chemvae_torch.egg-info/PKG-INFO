@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: chemvae_torch
+Version: 0.0.1
+Summary: Pytorch implementation of ChemVAE (generative model for chemistry)
+Home-page: https://github.com/author_name/project_urlname/
+Author: Matthieu Dagommer
+Description-Content-Type: text/markdown
+
+# Welcome to the chemvae-torch project!
+
+This repo contains a Pytorch implementation of ChemVAE, a deep learning framework for molecule generation.

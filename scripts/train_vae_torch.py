@@ -278,7 +278,7 @@ if __name__ == "__main__":
             raise NameError(f"Pretrained weights folder {pretrained_weights_path} does not exist.")
 
         params["pretrained_encoder_file"] = pretrained_weights_path / "encoder.pt"
-        params["pretrained_decoder_file"] = pretrained_weights_path / "decoder.pt"
+        # params["pretrained_decoder_file"] = pretrained_weights_path / "decoder.pt"
         params["pretrained_predictor_file"] = pretrained_weights_path / "prop_pred.pt"
 
     params["exp_path"] = exp_path
