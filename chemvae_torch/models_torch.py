@@ -247,6 +247,84 @@ class DecoderModel(nn.Module):
         return x_out
 
 
+class DecoderModel2(nn.Module):
+    """
+    Decoder model.
+
+    :param params: hyperparameters
+    """
+
+    def __init__(self, params):
+        """
+        Init Decoder model.
+
+        :param params: hyperparameters
+        """
+        super(DecoderModel, self).__init__()
+        self.params = params
+
+        self.z = nn.Sequential(
+            nn.Linear(params["hidden_dim"], int(params["hidden_dim"])),
+            nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
+            CustomBatchNorm1d(int(params["hidden_dim"])) if params["batchnorm_mid"] else nn.Identity(),
+        )
+
+        for i in range(1, params["middle_layer"]):
+            self.z.add_module(
+                "decoder_dense{}".format(i),
+                nn.Sequential(
+                    nn.Linear(
+                        int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)),
+                        int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)),
+                    ),
+                    nn.Dropout(params["dropout_rate_mid"]) if params["dropout_rate_mid"] > 0 else nn.Identity(),
+                    CustomBatchNorm1d(int(params["hidden_dim"] * params["hg_growth_factor"] ** (i)))
+                    if params["batchnorm_mid"]
+                    else nn.Identity(),
+                ),
+            )
+
+        if params["gru_depth"] > 1:
+            self.x_dec = nn.Sequential(nn.GRU(params["hidden_dim"], params["recurrent_dim"], batch_first=True))
+            for i in range(1, params["gru_depth"] - 1):
+                self.x_dec.add_module(
+                    "gru_{}".format(i), nn.GRU(params["recurrent_dim"], params["recurrent_dim"], batch_first=True)
+                )
+
+        if self.params["use_tgru"]:
+            self.x_out = CustomGRU(params["recurrent_dim"], params["NCHARS"], 1, device=params["device"])
+        else:
+            self.x_out = nn.GRU(params["recurrent_dim"], params["NCHARS"], 1)
+
+    def forward(self, z_in, targets=None):
+        """
+        Forward pass.
+
+        :param z_in: input tensor
+        :return: output tensor
+        """
+        z = self.z(z_in)
+        z_reshaped = z.unsqueeze(1)
+        # Repeat z along the second dimension to get shape (batch_size, MAX_LEN, hidden_dim)
+        z_reps = z_reshaped.repeat(1, self.params["MAX_LEN"], 1)
+
+        if hasattr(self, "x_dec"):
+            for i in range(len(self.x_dec)):
+                z_reps, _ = self.x_dec[i](z_reps)
+        x_dec = z_reps
+
+        if self.training and self.params["use_tgru"] and targets is None:
+            raise KeyError("The decoder is in training mode, but no targets were provided.")
+
+        if self.params["use_tgru"] and self.training:
+            # teacher forcing with the targets
+            x_out, _ = self.x_out.forward(x_dec, targets=targets)
+        else:
+            x_out, _ = self.x_out.forward(x_dec)
+
+        return x_out
+    
+
 class PropertyPredictorModel(nn.Module):
     """
     Property predictor model.

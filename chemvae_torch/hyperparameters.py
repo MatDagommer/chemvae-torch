@@ -40,7 +40,7 @@ def load_params(param_file=None, verbose=True):
         "conv_d_growth_factor": 1.15875438383,
         "conv_w_growth_factor": 1.1758149644,
         # decoder parameters
-        "gru_depth": 4,
+        "gru_depth": 1, #4
         "rnn_activation": "tanh",
         "recurrent_dim": 50,
         "do_tgru": True,  # use custom terminal gru layer
