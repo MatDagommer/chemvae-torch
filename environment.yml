@@ -1,4 +1,4 @@
-name: chemvae_py37
+name: chemvae
 channels:
   - conda-forge
   - defaults
